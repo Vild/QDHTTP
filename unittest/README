@@ -1,0 +1,31 @@
+This folder contains two scripts, which you can use to check if your web server implementation works properly. Those scripts are:
+	- check.sh
+	- insecure.sh
+
+==================================
+
+check.sh:
+
+This script sends different requests to check your web server implementation. Additionally, it uses the Apache Benchmarking tool (ab) to check if your implementation can handle multiple requests. After sending all requests, the script prints a summary of the performed requests and a list of zombie processes on the system.
+
+Required Programs:
+	- gnuplot (sudo apt-get install gnuplot)
+	- ab (sudo apt-get install apache2-utils)
+
+Example Execution:
+	./check.sh run1
+
+This will create a folder called "run1" in the results folder and will save all obtained responses in this folder. Additionally, a summary of the obtained requests will be written to stdout.
+
+Known Problems:
+
+If your implementation does not follow exactly the HTTP response format as specified in RFC 1945, the printed summary will look wrong.
+
+==================================
+
+insecure.sh:
+
+This script simply uses grep to search for functions which tend to introduce security issues. You have to see if the found functions are used in an insecure way.
+
+Example Execution:
+	./insecure.sh project/webserver/src
