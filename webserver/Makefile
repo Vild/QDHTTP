@@ -1,8 +1,12 @@
 PROJECT := QDHTTP
 
-CC := gcc
+CC ?= gcc
 CFLAGS := -Wall -Werror -pedantic -ggdb -Iinclude -std=c11 -fdiagnostics-color=always
 LFLAGS :=
+
+ifndef NO_COLOR
+CFLAGS += -fdiagnostics-color=always
+endif
 
 ifdef RELEASE
 CFLAGS += -O3
