@@ -1,4 +1,5 @@
 PROJECT := QDHTTP
+SHELL = bash
 
 CC ?= gcc
 CFLAGS := -Wall -Werror -pedantic -ggdb -Iinclude -std=c11 -fdiagnostics-color=always
