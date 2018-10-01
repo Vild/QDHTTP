@@ -2,7 +2,7 @@ PROJECT := QDHTTP
 SHELL = bash
 
 CC ?= gcc
-CFLAGS := -Wall -Werror -pedantic -ggdb -Iinclude -std=c11 -fdiagnostics-color=always
+CFLAGS := -Wall -Wextra -Werror -pedantic -Iinclude -std=c11
 LFLAGS :=
 
 ifndef NO_COLOR
@@ -23,8 +23,9 @@ TARGET := $(BIN)qdhttp
 
 SRCDIRS := src src/* src/*/* src/*/*/*
 SOURCES := $(foreach DIR, $(SRCDIRS), $(wildcard $(DIR)/*.c))
-OBJECTS = $(patsubst %.c, $(OBJ)%.o, $(SOURCES))
+OBJECTS = $(patsubst $(SRC)%.c, $(OBJ)%.o, $(SOURCES))
 
+# COLOR STUFF
 BEG =	echo -e -n "  \033[32m$(1)$(2)...\033[0m" ; echo -n > /tmp/.`whoami`-build-errors
 END =	if [[ -s /tmp/.`whoami`-build-errors ]] ; then \
 		echo -e -n "\r\033[1;33m$(1)$(2)\033[0m\n"; \
@@ -62,7 +63,7 @@ init:
 run: # Won't recompile
 	@$(TARGET) -C ../web
 
-$(OBJ)%.o: %.c
+$(OBJ)%.o: $(SRC)%.c
 	@$(call BEG, "CC", "$<")
 	@mkdir -p $(dir $@)
 	@$(CC) -c $< -o $@ $(CFLAGS) $(ERRORS)
