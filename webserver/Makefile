@@ -18,8 +18,8 @@ CFLAGS += -fdiagnostics-color=always
 endif
 
 ifdef RELEASE
-CFLAGS += -O2 -flto
-LFLAGS += -Wl,-O1 -flto
+CFLAGS += -O2
+LFLAGS += -Wl,-O1
 else
 CFLAGS += -ggdb -Og
 endif

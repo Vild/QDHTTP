@@ -1,6 +1,6 @@
 language: c
 
-script: make clean test RELEASE=1
+script: make clean test RELEASE=1 NO_COLOR=1 NO_ARCH_TUNE=1 NO_LTO=1
 
 compiler:
   - clang
