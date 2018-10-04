@@ -2,7 +2,7 @@ PROJECT := QDHTTP
 SHELL = bash
 
 CC ?= gcc
-CFLAGS := -Wall -Wextra -Werror -pedantic -Iinclude -std=gnu1x -finline-functions -fPIC -fPIE -pipe
+CFLAGS := -Wall -Wextra -Werror -Iinclude -std=gnu1x -finline-functions -fPIC -fPIE -pipe
 LFLAGS :=
 
 SRC := src/
@@ -81,7 +81,11 @@ init:
 	@$(call INFO, "--", "Building $(PROJECT)...");
 
 run: # Won't recompile
+	@echo ""
+	@echo ""
 	@$(TARGET) -C ../web
+	@echo ""
+	@echo ""
 
 $(OBJ)%.o: $(SRC)%.c
 	@$(call BEG, "CC", "$<")

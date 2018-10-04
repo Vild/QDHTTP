@@ -1,0 +1,11 @@
+-Wall
+-Wextra
+-Werror
+-I/usr/include
+-Iinclude
+-std=gnu1x
+-finline-functions
+-fPIC
+-fPIE
+-pipe
+-D_DEFAULT_SOURCE

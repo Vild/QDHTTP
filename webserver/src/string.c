@@ -4,49 +4,62 @@
 #include <stdarg.h>
 #include <qdhttp/string.h>
 
-struct string* string_init() {
-	struct string* str = malloc(sizeof(struct string));
-	str->str = NULL;
-	str->length = 0;
-	str->_ownsStr = false;
-	str->_capacity = 0;
-	return str;
-}
-void string_free(struct string* str) {
-	free(str->str);
-	free(str);
-}
-void string_fromCStr(struct string* str, const char* text) {
-	str->str = strdup(text);
-	str->length = strlen(text);
-	str->_ownsStr = false;
-	str->_capacity = 0;
-}
-const char * string_toCStr(struct string* str) {
-	return str->str;
+string string_init(size_t reservedSize) {
+	struct string_header* sh = malloc(sizeof(struct string_header) + reservedSize + 1);
+	sh->length = 0;
+	sh->capacity = reservedSize;
+	sh->str[0] = sh->str[reservedSize + 1] = '\0';
+	return sh->str;
 }
 
-void string_resize(struct string* str, size_t size) {
-	if (str->_capacity == size)
+string string_initFromCStr(const char* text) {
+	size_t len = strlen(text);
+	struct string_header* sh = malloc(sizeof(struct string_header) + len + 1);
+
+	sh->length = len;
+	sh->capacity = len;
+	sh->str[len + 1] = '\0';
+	strncpy(sh->str, text, len); // Will place a \0 as the end
+	return sh->str;
+}
+
+void string_free(string str) {
+	free(string_getHeader(str));
+}
+
+void string_resize(string* str, size_t size) {
+	struct string_header* sh = string_getHeader(*str);
+
+	if (sh->capacity == size)
 		return;
-	str->str = realloc(str->str, str->length);
-	str->length = size;
+
+	sh = realloc(sh, sizeof(struct string_header) + size + 1);
+	sh->length = min(sh->length, size);
+	sh->capacity = size;
+	sh->str[size + 1] = '\0';
+	*str = sh->str;
 }
 
-void string_format(struct string* str, const char* fmt, ...) {
+void string_format(string str, const char* fmt, ...) {
+	struct string_header* sh = string_getHeader(str);
+
 	va_list va;
 	va_start(va, fmt);
-	vsnprintf(str->str, str->_capacity, fmt, va);
+	vsnprintf(sh->str, sh->capacity, fmt, va);
 	va_end(va);
 }
 
-void string_append(struct string* str, const char* text) {
-	strncat(str->str, text, str->_capacity);
+void string_append(string str, const char* text) {
+	struct string_header* sh = string_getHeader(str);
+
+	strncat(sh->str, text, sh->capacity);
 }
 
-void string_append_format(struct string* str, const char* fmt, ...) {
+void string_append_format(string str, const char* fmt, ...) {
+	struct string_header* sh = string_getHeader(str);
+
 	va_list va;
 	va_start(va, fmt);
-	vsnprintf(str->str + str->length, str->_capacity - str->length, fmt, va);
+	vsnprintf(sh->str + sh->length, sh->capacity - sh->length, fmt, va);
 	va_end(va);
 }
