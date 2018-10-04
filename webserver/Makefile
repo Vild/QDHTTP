@@ -2,22 +2,40 @@ PROJECT := QDHTTP
 SHELL = bash
 
 CC ?= gcc
-CFLAGS := -Wall -Wextra -Werror -pedantic -Iinclude -std=c11
+CFLAGS := -Wall -Wextra -Werror -pedantic -Iinclude -std=gnu1x -finline-functions -fPIC -fPIE -pipe
 LFLAGS :=
+
+SRC := src/
+OBJ := objects/
+BIN := bin/
+
+CFLAGS += -D_DEFAULT_SOURCE
+
+# == Options ==
 
 ifndef NO_COLOR
 CFLAGS += -fdiagnostics-color=always
 endif
 
 ifdef RELEASE
-CFLAGS += -O3
+CFLAGS += -O2 -flto
+LFLAGS += -Wl,-O1 -flto
 else
-CFLAGS += -ggdb
+CFLAGS += -ggdb -Og
 endif
 
-SRC := src/
-OBJ := objects/
-BIN := bin/
+ifndef NO_ARCH_TUNE
+CFLAGS += -mtune=native -march=native
+endif
+
+ifndef NO_LTO
+CFLAGS += -flto
+LFLAGS += -flto
+endif
+
+LFLAGS += $(CFLAGS)
+
+# == Directories ==
 
 TARGET := $(BIN)qdhttp
 
@@ -25,7 +43,7 @@ SRCDIRS := src src/* src/*/* src/*/*/*
 SOURCES := $(foreach DIR, $(SRCDIRS), $(wildcard $(DIR)/*.c))
 OBJECTS = $(patsubst $(SRC)%.c, $(OBJ)%.o, $(SOURCES))
 
-# COLOR STUFF
+# == Fun color output ==
 BEG =	echo -e -n "  \033[32m$(1)$(2)...\033[0m" ; echo -n > /tmp/.`whoami`-build-errors
 END =	if [[ -s /tmp/.`whoami`-build-errors ]] ; then \
 		echo -e -n "\r\033[1;33m$(1)$(2)\033[0m\n"; \
@@ -46,6 +64,8 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || { $(call ERRORFUNC) }
 
 BEGRM = echo -e -n "  \033[31m$(1)$(2)...\033[0m" && echo -n > /tmp/.`whoami`-build-errors
 ENDRM = echo -e -n "\r  \033[1;31m$(1)$(2)\033[0m\033[K\n"
+
+# == Build rules ==
 
 .PHONY: all clean init
 
