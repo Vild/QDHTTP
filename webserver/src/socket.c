@@ -37,7 +37,7 @@ Content-type: text/html\r\
   Hello World, this is a very simple HTML document.\
 </body>\
 </html>";
-		write(client->fd, output, sizeof(output));
+		(void)write(client->fd, output, sizeof(output));
 
 		client->dead = true;
 	}
@@ -54,16 +54,16 @@ struct Server* server_init(string ip, uint16_t port, size_t clientCapacity) {
 	inet_aton(ip, &address.sin_addr);
 	address.sin_port = htons(port);
 
-	bind(server->fd, (struct sockaddr *)&address , sizeof(address));
+	(void)bind(server->fd, (struct sockaddr *)&address , sizeof(address));
 
-	listen(server->fd, clientCapacity);
+	(void)listen(server->fd, clientCapacity);
 
 
 	return server;
 }
 
 void server_free(struct Server* server) {
-	close(server->fd);
+	(void)close(server->fd);
 	free(server);
 }
 
@@ -92,7 +92,7 @@ void server_aquireNewClients(struct Server* server) {
 	if (FD_ISSET(server->fd, &readfds)) {
 		struct sockaddr addr;
 		socklen_t addrlen;
-		close(accept(server->fd, &addr, &addrlen));
+		(void)close(accept(server->fd, &addr, &addrlen));
 		printf("SOMEONE CONNECT\n");
 	}
 }
