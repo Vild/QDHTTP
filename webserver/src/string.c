@@ -45,7 +45,7 @@ void string_format(string str, const char* fmt, ...) {
 
 	va_list va;
 	va_start(va, fmt);
-	vsnprintf(sh->str, sh->capacity, fmt, va);
+	sh->length += (size_t)vsnprintf(sh->str, sh->capacity, fmt, va);
 	va_end(va);
 }
 
@@ -53,6 +53,8 @@ void string_append(string str, const char* text) {
 	struct string_header* sh = string_getHeader(str);
 
 	strncat(sh->str, text, sh->capacity);
+
+	sh->length += (size_t)strlen(&sh->str[sh->length]);
 }
 
 void string_append_format(string str, const char* fmt, ...) {
@@ -60,6 +62,6 @@ void string_append_format(string str, const char* fmt, ...) {
 
 	va_list va;
 	va_start(va, fmt);
-	vsnprintf(sh->str + sh->length, sh->capacity - sh->length, fmt, va);
+	sh->length += (size_t)vsnprintf(sh->str + sh->length, sh->capacity - sh->length, fmt, va);
 	va_end(va);
 }

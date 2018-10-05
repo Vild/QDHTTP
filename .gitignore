@@ -55,4 +55,6 @@ dkms.conf
 # Misc
 *~
 webserver/bin/
-.\#*
+.\#
+*.gdb_history
+

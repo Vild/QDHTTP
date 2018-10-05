@@ -10,25 +10,29 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <arpa/inet.h>
 
-#define dropClientAfter 8 /* Seconds */
+#define dropClientAfter 2 /* Seconds */
 
 struct Client {
 	int fd;
 	bool dead;
 	string request;
 	time_t connectAt;
+	struct sockaddr_in addr;
 };
 
 struct Server {
 	int fd;
+	fd_set readfds;
 
-  struct Client** clientList;
+  struct Client** clients;
+  struct Client** clientsOther; ///< Used when removing items
 	size_t clientCount;
 	size_t clientCapacity;
 };
 
-struct Client* client_init(int fd, time_t currentTime);
+struct Client* client_init(int fd, time_t currentTime, struct sockaddr_in addr);
 void client_free(struct Client* client);
 
 /**

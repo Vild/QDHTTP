@@ -2,19 +2,21 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
 #include <unistd.h>
+#include <string.h>
 
-struct Client* client_init(int fd, time_t currentTime) {
+struct Client* client_init(int fd, time_t currentTime, struct sockaddr_in addr) {
 	struct Client* client = malloc(sizeof(struct Client));
 	client->fd = fd;
 	client->dead = false;
 	client->request = string_init(0x400);
 	client->connectAt = currentTime;
+	client->addr = addr;
 	return client;
 }
 
 void client_free(struct Client* client) {
+	printf("Freeing client %s:%d\n", inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port));
 	close(client->fd);
 	string_free(client->request);
 	free(client);
@@ -22,22 +24,54 @@ void client_free(struct Client* client) {
 
 void client_update(struct Client* client, time_t currentTime) {
 	client->dead |= (currentTime - client->connectAt) >= dropClientAfter;
+	if (client->dead)
+		printf("Client %s:%d is dead\n", inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port));
 
 	if (!client->dead && string_getSize(client->request)) {
-		static char output[] = "HTTP/1.0 200 OK\r\
-Date: Thu, 1 Jan 70 00:00:00 GMT\r\
-Server: QDHTTP\r\
-Content-type: text/html\r\
-\r\
-<html>\
-<head>\
-  <title>An Example Page</title>\
-</head>\
-<body>\
-  Hello World, this is a very simple HTML document.\
-</body>\
-</html>";
-		write(client->fd, output, sizeof(output));
+		printf("Client %s:%d got a request:\n%s\n", inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port), client->request);
+		string response = string_init(0x1000);
+		string_append(response, "HTTP/1.0 200 OK\r\n");
+
+
+		struct tm* t = gmtime(&currentTime);
+
+		static const char wday_name[][4] = {
+			"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+		};
+		static const char mon_name[][4] = {
+			"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+			"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+		};
+		//Fri, 05 Oct 2018 23:14:49 GMT
+		string_append_format(response, "Date: %.3s, %.2d %.3s %.4d %.2d:%.2d:%.2d GMT\r\n",
+												 wday_name[t->tm_wday],
+												 t->tm_mday,
+												 mon_name[t->tm_mon],
+												 1900 + t->tm_year,
+												 t->tm_hour,
+												 t->tm_min,
+												 t->tm_sec);
+		string_append(response, "Server: QDHTTP Version (idk)\r\n");
+		string_append(response, "Content-type: text/html\r\n");
+		string_append(response, "Connection: close\r\n");
+		string_append(response, "\r\n");
+
+		{
+			static const char* path = "../www/index.html";
+			FILE* fp = fopen(path, "rb");
+			fseek(fp, 0, SEEK_END);
+			long len = ftell(fp);
+			rewind(fp);
+			char* data = malloc((size_t)(len + 1));
+			data[len] = '\0';
+			fread(data, (size_t)len, 1, fp);
+			fclose(fp);
+			string_append(response, data);
+			free(data);
+		}
+
+		printf("response: '%s'", response);
+		write(client->fd, response, string_getSize(response));
 
 		client->dead = true;
 	}
@@ -47,56 +81,109 @@ struct Server* server_init(string ip, uint16_t port, size_t clientCapacity) {
 	struct Server* server = malloc(sizeof(struct Server));
 
 	server->fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+	int option = 1;
+	setsockopt(server->fd, SOL_SOCKET , SO_REUSEADDR, (char *)&option, sizeof(option));
 
-	struct sockaddr_in address = {0};
+	struct sockaddr_in address;
 
 	address.sin_family = AF_INET;
-	inet_aton(ip, &address.sin_addr);
 	address.sin_port = htons(port);
+	inet_aton(ip, &address.sin_addr);
 
-	bind(server->fd, (struct sockaddr *)&address , sizeof(address));
+	if (bind(server->fd, (struct sockaddr *)&address , sizeof(address))) {
+		perror("bind");
+		exit(EXIT_FAILURE);
+	}
 
-	listen(server->fd, (int)clientCapacity);
+	if (listen(server->fd, (int)clientCapacity)) {
+		perror("listen");
+		exit(EXIT_FAILURE);
+	}
 
+	server->clients = malloc(sizeof(struct Client*) * clientCapacity);
+	server->clientsOther = malloc(sizeof(struct Client*) * clientCapacity);
+	server->clientCount = 0;
+	server->clientCapacity = clientCapacity;
 
 	return server;
 }
 
 void server_free(struct Server* server) {
+	for (size_t i = 0; i < server->clientCount; i++)
+		client_free(server->clients[i]);
+	free(server->clients);
+	free(server->clientsOther);
 	close(server->fd);
 	free(server);
 }
 
 void server_freeDeadClients(struct Server* server) {
-	(void)server;
+	size_t removed = 0;
+	struct Client** list = server->clientsOther;
+	for (size_t i = 0; i < server->clientCount; i++) {
+		struct Client* c = server->clients[i];
+
+		if (c->dead) {
+			client_free(c);
+			removed++;
+		} else {
+			list[i - removed] = c;
+		}
+	}
+	server->clientCount -= removed;
+	server->clientsOther = server->clients;
+	server->clients = list;
 }
 
 void server_aquireNewClients(struct Server* server) {
-	fd_set readfds;
-	int highestFD;
-	FD_ZERO(&readfds);
-	FD_SET(server->fd, &readfds);
-	highestFD = server->fd;
+	int highestFD = server->fd;
+
+	FD_ZERO(&server->readfds);
+	FD_SET(server->fd, &server->readfds);
 
 	for (size_t i = 0; i < server->clientCount; i++) {
-		struct Client* client = server->clientList[i];
+		struct Client* client = server->clients[i];
 
-		FD_SET(client->fd, &readfds);
+		FD_SET(client->fd, &server->readfds);
 		highestFD = max(highestFD, client->fd);
 	}
 
-	int r = select(highestFD + 1, &readfds, NULL, NULL, NULL /* Wait forever */);
+	struct timeval tv;
+	tv.tv_sec = 0;
+	tv.tv_usec = 250 * 1000;
+
+	//printf("select\n");
+	int r = select(highestFD + 1, &server->readfds, NULL, NULL, &tv);
 	if (r <= 0)
 		return;
 
-	if (FD_ISSET(server->fd, &readfds)) {
-		struct sockaddr addr;
-		socklen_t addrlen;
-		close(accept(server->fd, &addr, &addrlen));
-		printf("SOMEONE CONNECT\n");
+	//printf("server isset\n");
+	if (FD_ISSET(server->fd, &server->readfds) && server->clientCount < server->clientCapacity) {
+		struct sockaddr_in addr;
+		socklen_t addrlen = sizeof(addr);
+		int clientFD = accept(server->fd, (struct sockaddr*)&addr, &addrlen);
+
+		printf("Client from %s:%d connect!\n", inet_ntoa(addr.sin_addr), (int)ntohs(addr.sin_port));
+		if (clientFD > 0) {
+			struct Client* client = client_init(clientFD, time(NULL), addr);
+			server->clients[server->clientCount++] = client;
+		}
 	}
+
 }
 
 void server_handleRequests(struct Server* server) {
-	(void)server;
+	time_t currentTime = time(NULL);
+
+	for (size_t i = 0; i < server->clientCount; i++) {
+		struct Client* client = server->clients[i];
+		if (FD_ISSET(client->fd, &server->readfds)) {
+			ssize_t amount = read(client->fd, client->request, string_getSpaceLeft(client->request));
+			if (amount <= 0)
+				client->dead = true;
+			printf("Read %ld bytes for client from %s:%d\n", amount, inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port));
+			string_setSize(client->request, (size_t)amount);
+		}
+		client_update(client, currentTime);
+	}
 }
