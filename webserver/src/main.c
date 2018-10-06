@@ -1,5 +1,6 @@
 #include <qdhttp/string.h>
 #include <qdhttp/socket.h>
+#include <qdhttp/log.h>
 
 #include <stdio.h>
 #include <stdint.h>
@@ -43,14 +44,11 @@ int main(int argc, char** argv) {
 	string ip = string_initFromCStr("0.0.0.0");
 	size_t maxAmountOfClient = 64;
 
-	int daemon = false;
+	int isDaemon = false;
 	char* logFile = NULL;
 	uint16_t port = 8888;
 	enum Request request = REQUEST_MUX;
 
-
-	(void)daemon;
-	(void)logFile;
 	(void)request;
 
 	int showHelp = false;
@@ -74,7 +72,7 @@ int main(int argc, char** argv) {
 			port = (uint16_t)atoi(optarg);
 			break;
     case 'd':
-			daemon = true;
+			isDaemon = true;
 			break;
     case 'l':
 			logFile = optarg;
@@ -122,6 +120,8 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 
+	log_init(logFile, isDaemon);
+
 	server = server_init(ip, port, maxAmountOfClient);
 	while (true) {
 		server_freeDeadClients(server);
@@ -129,6 +129,8 @@ int main(int argc, char** argv) {
 		server_handleRequests(server);
 	}
 	server_free(server);
+
+	log_free();
 
 	return 0;
 }

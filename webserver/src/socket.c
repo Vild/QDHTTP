@@ -1,5 +1,7 @@
 #include <qdhttp/socket.h>
 
+#include <qdhttp/log.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -56,19 +58,40 @@ void client_update(struct Client* client, time_t currentTime) {
 		string_append(response, "Connection: close\r\n");
 		string_append(response, "\r\n");
 
+		//TODO: parse request
+		string requestHeader = string_initFromCStr("GET / HTTP/1.0");
+		string useragent = string_initFromCStr("w3m/0.5.3+git20180125");
+		string requestURL = string_initFromCStr("index.html");
+		string data = NULL;
+
 		{
-			static const char* path = "../www/index.html";
+			string path = string_init(512);
+			string_append(path, "../www/");
+			string_append(path, requestURL);
+			//TODO: validate path
+
 			FILE* fp = fopen(path, "rb");
+			string_free(path);
+
 			fseek(fp, 0, SEEK_END);
-			long len = ftell(fp);
+			size_t len = (size_t)ftell(fp);
 			rewind(fp);
-			char* data = malloc((size_t)(len + 1));
+
+			data = string_init(len);
+			string_setSize(data, len);
 			data[len] = '\0';
 			fread(data, (size_t)len, 1, fp);
 			fclose(fp);
-			string_append(response, data);
-			free(data);
 		}
+
+		string_append(response, data);
+
+		log_access("0.0.0.0", currentTime, requestHeader, 200, string_getSize(data), requestURL, useragent);
+
+		string_free(data);
+		string_free(requestURL);
+		string_free(useragent);
+		string_free(requestHeader);
 
 		printf("response: '%s'", response);
 		write(client->fd, response, string_getSize(response));
