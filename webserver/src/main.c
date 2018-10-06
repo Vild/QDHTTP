@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
 	size_t maxAmountOfClient = 64;
 
 	int isDaemon = false;
-	char* logFile = NULL;
+	string logFile = NULL;
 	uint16_t port = 8888;
 	enum Request request = REQUEST_MUX;
 
@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
 			isDaemon = true;
 			break;
     case 'l':
-			logFile = optarg;
+			logFile = string_initFromCStr(optarg);
 			break;
     case 's':
 			if (!strcmp(optarg, "fork"))
@@ -110,17 +110,21 @@ int main(int argc, char** argv) {
 
 	if (showHelp) {
 		printf("%s:\n", argv[0]);
-		printf("\t-h | --help        - Print this help.\n");
-		printf("\t-p | --port <port> - Listen to port number <port>.\n");
-		printf("\t-d | --daemon      - Run as a daemon instead of as a normal program.\n");
-		printf("\t-l | --logfile     - Log to file. If this option is not specified, logging\n");
-		printf("\t                     will be output to syslog, which is default.\n");
+		printf("\t-h | --help           - Print this help.\n");
+		printf("\t-p | --port <port>    - Listen to port number <port>.\n");
+		printf("\t-d | --daemon         - Run as a daemon instead of as a normal program.\n");
+		printf("\t-l | --logfile <file> - Log to file. If this option is not specified, logging\n");
+		printf("\t                        will be only output to syslog, which is default.\n");
+		printf("\t                        Files will be called <file>.log and <file>.err.\n");
 		printf("\t-s | --request [fork | thread | prefork | mux]\n");
-		printf("\t                   - Select request handling method.\n");
+		printf("\t                      - Select request handling method.\n");
 		return 0;
 	}
 
-	log_init(logFile, isDaemon);
+	log_init(&logFile, isDaemon);
+	string_free(logFile);
+
+	log_error(time(NULL), "error", "client 0.0.0.0", "This is not a error!");
 
 	server = server_init(ip, port, maxAmountOfClient);
 	while (true) {

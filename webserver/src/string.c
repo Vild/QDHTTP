@@ -24,7 +24,14 @@ string string_initFromCStr(const char* text) {
 }
 
 void string_free(string str) {
-	free(string_getHeader(str));
+	if (str)
+		free(string_getHeader(str));
+}
+
+void string_setSize(string str, size_t len) {
+	struct string_header* sh = string_getHeader(str);
+	sh->length = len;
+	sh->str[len] = '\0';
 }
 
 void string_resize(string* str, size_t size) {

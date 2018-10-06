@@ -62,6 +62,7 @@ void client_update(struct Client* client, time_t currentTime) {
 		string requestHeader = string_initFromCStr("GET / HTTP/1.0");
 		string useragent = string_initFromCStr("w3m/0.5.3+git20180125");
 		string requestURL = string_initFromCStr("index.html");
+		string refererURL = string_initFromCStr("http://nosite.com/");
 		string data = NULL;
 
 		{
@@ -86,9 +87,10 @@ void client_update(struct Client* client, time_t currentTime) {
 
 		string_append(response, data);
 
-		log_access("0.0.0.0", currentTime, requestHeader, 200, string_getSize(data), requestURL, useragent);
+		log_access("0.0.0.0", currentTime, requestHeader, 200, string_getSize(data), refererURL, useragent);
 
 		string_free(data);
+		string_free(refererURL);
 		string_free(requestURL);
 		string_free(useragent);
 		string_free(requestHeader);

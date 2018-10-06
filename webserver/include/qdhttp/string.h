@@ -30,9 +30,8 @@ void string_free(string str);
 inline size_t string_getSize(string str) {
 	return string_getHeader(str)->length;
 }
-inline void string_setSize(string str, size_t len) {
-	string_getHeader(str)->length = len;
-}
+void string_setSize(string str, size_t len);
+
 inline size_t string_getSpaceLeft(string str) {
 	struct string_header* sh = string_getHeader(str);
 	return sh->capacity - sh->length;
