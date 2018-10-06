@@ -15,7 +15,7 @@ HF=head_full
 NF=not_found
 
 
-PORT=80
+PORT=8888
 
 if [ $# -ne 1 ]; then
 	echo "usage: $0 <run-name> (port)"
