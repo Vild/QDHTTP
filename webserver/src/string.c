@@ -13,13 +13,13 @@ string string_init(size_t reservedSize) {
 }
 
 string string_initFromCStr(const char* text) {
-	size_t len = strlen(text);
+	size_t len = strlen(text) + 1;
 	struct string_header* sh = malloc(sizeof(struct string_header) + len + 1);
 
 	sh->length = len;
 	sh->capacity = len;
 	sh->str[len + 1] = '\0';
-	strncpy(sh->str, text, len); // Will place a \0 as the end
+	memcpy(sh->str, text, len);
 	return sh->str;
 }
 

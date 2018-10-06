@@ -2,7 +2,7 @@ PROJECT := QDHTTP
 SHELL = bash
 
 CC ?= gcc
-CFLAGS := -Iinclude -std=gnu1x -finline-functions -fPIC -fPIE -pipe
+CFLAGS_BASE := -Iinclude -std=gnu1x -finline-functions -fPIC -fPIE -pipe -D_DEFAULT_SOURCE
 LFLAGS := -lm
 WARNINGS := -Wall -Wextra -Wshadow
 WARNINGS += -Wfloat-equal -Wmissing-prototypes -Wunused-value -Wunused-parameter
@@ -13,18 +13,20 @@ WARNINGS += -Wpointer-arith -Wnested-externs -Wredundant-decls
 WARNINGS += -Wdisabled-optimization
 
 SRC := src/
+INC := include/
 OBJ := objects/
 BIN := bin/
 
 
 # == Options ==
+CFLAGS :=
 
 ifndef NO_COLOR
 CFLAGS += -fdiagnostics-color=always
 endif
 
 ifdef RELEASE
-CFLAGS += -O2 -DDNDEBUG
+CFLAGS += -O2 -DNDEBUG
 LFLAGS += -Wl,-O1
 else
 CFLAGS += -ggdb3 -Og
@@ -45,16 +47,15 @@ endif
 
 # == Add the options to the flags ==
 
-CFLAGS += $(WARNINGS)
-CFLAGS += -D_DEFAULT_SOURCE
+CFLAGS += $(CFLAGS_BASE) $(WARNINGS)
 LFLAGS += $(CFLAGS)
 
 # == Directories ==
 
 TARGET := $(BIN)qdhttp
 
-SRCDIRS := src src/* src/*/* src/*/*/*
-SOURCES := $(foreach DIR, $(SRCDIRS), $(wildcard $(DIR)/*.c))
+SOURCES := $(shell find $(SRC) -iname "*.c")
+HEADERS := $(shell find $(INC) -iname "*.h")
 OBJECTS = $(patsubst $(SRC)%.c, $(OBJ)%.o, $(SOURCES))
 
 # == Fun color output ==
@@ -101,18 +102,11 @@ all: init $(TARGET)
 init:
 	@$(call INFO,"::","Building $(PROJECT)...");
 
-run: # Won't recompile
-	@echo ""
-	@echo ""
-	@$(TARGET) -C ../web
-	@echo ""
-	@echo ""
-
 $(OBJ)%.o: $(SRC)%.c
-	@$(call BEG,$(BLUE),"  -\> CC","$@ \<-- $^")
+	@$(call BEG,$(BLUE),"  -\> CC","$@ \<-- $<")
 	@mkdir -p $(dir $@)
 	@$(CC) -c $< -o $@ $(CFLAGS) $(ERRORS)
-	@$(call END,$(BLUE),"  -\> CC","$@ \<-- $^")
+	@$(call END,$(BLUE),"  -\> CC","$@ \<-- $<")
 
 $(TARGET): $(OBJECTS)
 	@$(call BEG,$(BLUE),"  -\> LD","$@ \<-- $^")
@@ -122,9 +116,24 @@ $(TARGET): $(OBJECTS)
 
 clean:
 	@$(call INFO,"::","Removing generated files...");
+	@$(call BEG,$(BLUE),"  -\> RM",".depend")
+	@$(RM) -rf .depend
+	@$(call END,$(BLUE),"  -\> RM",".depend")
 	@$(call BEG,$(BLUE),"  -\> RM","$(BIN)")
 	@$(RM) -rf $(BIN)
 	@$(call END,$(BLUE),"  -\> RM","$(BIN)")
 	@$(call BEG,$(BLUE),"  -\> RM","$(OBJ)")
 	@$(RM) -rf $(OBJ)
 	@$(call END,$(BLUE),"  -\> RM","$(OBJ)")
+
+includePaths = $(shell echo | gcc -E -Wp,-v - 2>&1 | grep "\#include <" -A32 | egrep "^ " | sed "s/ /\-I/" | tr "\n" " ")
+depend: .depend
+.depend: $(SOURCES) $(HEADERS)
+	@$(call INFO,"::","Generating dependencies...");
+	@$(call BEG,$(BLUE),"  -\> RM","$(BIN)")
+	@$(RM) -rf ./.depend
+	@$(call END,$(BLUE),"  -\> RM","$(BIN)")
+	@$(call BEG,$(BLUE),"  -\> makedepend","$@ \<-- $^")
+	@makedepend $(includePaths) -p$(OBJ) -- $(CFLAGS_BASE) -- $(SOURCES) -f- | sed "s/\.\/src\///" > $@ $(ERRORS)
+	@$(call END,$(BLUE),"  -\> makedepend","$@ \<-- $^")
+include .depend
