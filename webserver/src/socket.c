@@ -30,7 +30,7 @@ void client_update(struct Client* client, time_t currentTime) {
 		printf("Client %s:%d is dead\n", inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port));
 
 	if (!client->dead && string_getSize(client->request)) {
-		printf("Client %s:%d got a request:\n%s\n", inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port), client->request);
+		printf("Client %s:%d got a request:\n==Request Start==\n%s\n==Request End==\n", inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port), client->request);
 		string response = string_init(0x1000);
 		string_append(response, "HTTP/1.0 200 OK\r\n");
 
@@ -95,8 +95,21 @@ void client_update(struct Client* client, time_t currentTime) {
 		string_free(useragent);
 		string_free(requestHeader);
 
-		printf("response: '%s'", response);
-		(void)write(client->fd, response, string_getSize(response));
+		printf("response: \n==Response Start==\n%s\n==Response End==\n", response);
+
+		size_t responseLen = string_getSize(response);
+		size_t offset = 0;
+		do {
+			ssize_t sent = write(client->fd, response + offset, responseLen - offset);
+			printf("\tresponseLen: %lu\n", responseLen);
+			printf("\toffset: %lu\n", offset);
+			printf("\tsent: %ld\n", sent);
+
+			if (sent <= 0)
+				break; // Socket is always dead after this loop is done
+
+			offset += (size_t)sent;
+		} while(offset < responseLen);
 
 		client->dead = true;
 	}
