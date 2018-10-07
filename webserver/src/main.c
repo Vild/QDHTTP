@@ -10,6 +10,10 @@
 #include <getopt.h>
 #include <string.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 struct Server* server = NULL;
 static void onSignal(int sig) {
 	if (sig == SIGINT)
@@ -119,6 +123,44 @@ int main(int argc, char** argv) {
 		printf("\t-s | --request [fork | thread | prefork | mux]\n");
 		printf("\t                      - Select request handling method.\n");
 		return 0;
+	}
+
+	if (isDaemon) {
+		pid_t pid = fork();
+		if (pid < 0) {
+			perror("fork");
+			exit(EXIT_FAILURE);
+		} else if (pid > 0)
+			exit(EXIT_SUCCESS);
+
+		if (setsid() < 0) {
+			perror("setsid");
+			exit(EXIT_FAILURE);
+		}
+
+		signal(SIGCHLD, SIG_IGN);
+		signal(SIGHUP, SIG_IGN);
+
+		pid = fork();
+
+		if (pid < 0) {
+			perror("fork");
+			exit(EXIT_FAILURE);
+		} else if (pid > 0) {
+			fprintf(stdout, "%d\n", pid);
+			exit(EXIT_SUCCESS);
+		}
+
+		umask(0);
+
+		//TODO: chroot(dataFolder);
+
+		for (int64_t fd = sysconf(_SC_OPEN_MAX); fd >= 0; fd--)
+			close((int)fd);
+
+		stdin = fopen("/dev/null", "r");
+		stdout = fopen("/dev/null", "w+");
+		stderr = fopen("/dev/null", "w+");
 	}
 
 	log_init(&logFile, isDaemon);

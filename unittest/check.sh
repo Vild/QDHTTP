@@ -26,7 +26,7 @@ if [ $# -ge 2 ]; then
 		PORT=$2
 fi
 
-mkdir $RES/$1
+mkdir -p $RES/$1
 
 printf "%b" "$(cat $SRC/$GF)\r\n" | nc -q 10 localhost $PORT > $RES/$1/$GF
 printf "%b" "$(cat $SRC/$HF)\r\n" | nc -q 10 localhost $PORT > $RES/$1/$HF
@@ -43,17 +43,12 @@ gnuplot $RES/$1/$PLOT
 ps aux | awk '"[Zz]" ~ $8 { printf("%s, %s, PID = %d\n", $11, $8, $2); }' > $RES/$1/$ZOMBIE
 
 
-echo "\n"
+echo ""
 
 ./parser.py $RES/$1/$GF
 ./parser.py $RES/$1/$HF
 ./parser.py $RES/$1/$NF
 
-echo "\n"
+echo ""
 
 cat $RES/$1/$ZOMBIE | sort
-
-
-
-
-
