@@ -54,8 +54,8 @@ LFLAGS += $(CFLAGS)
 
 TARGET := $(BIN)qdhttp
 
-SOURCES := $(shell find $(SRC) -iname "*.c")
-HEADERS := $(shell find $(INC) -iname "*.h")
+SOURCES := $(shell find $(SRC) -iname "*.c" -not -path '*/\.*')
+HEADERS := $(shell find $(INC) -iname "*.h" -not -path '*/\.*')
 OBJECTS = $(patsubst $(SRC)%.c, $(OBJ)%.o, $(SOURCES))
 
 # == Fun color output ==
@@ -132,7 +132,7 @@ includePaths = $(shell echo | gcc -E -Wp,-v - 2>&1 | grep "\#include <" -A32 | e
 	@$(call BEG,$(BLUE),"  -\> RM","$(BIN)")
 	@$(RM) -rf ./.depend
 	@$(call END,$(BLUE),"  -\> RM","$(BIN)")
-	@$(call BEG,$(BLUE),"  -\> makedepend","$@ \<-- $^")
+	@$(call BEG,$(BLUE),"  -\> makedepend","$@ \<-- $(SOURCES)")
 	@makedepend $(includePaths) -p$(OBJ) -- $(CFLAGS_BASE) -- $(SOURCES) -f- | sed -e "s/src\///" -e "s/\.\///" > $@ $(ERRORS)
-	@$(call END,$(BLUE),"  -\> makedepend","$@ \<-- $^")
+	@$(call END,$(BLUE),"  -\> makedepend","$@ \<-- $(SOURCES)")
 include .depend
