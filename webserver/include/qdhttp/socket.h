@@ -3,6 +3,7 @@
 
 #include <qdhttp/helper.h>
 #include <qdhttp/string.h>
+#include <qdhttp/config.h>
 
 #include <stdint.h>
 #include <time.h>
@@ -45,7 +46,7 @@ void client_free(struct Client* client);
  */
 void client_update(struct Client* client, time_t currentTime);
 
-struct Server* server_init(string ip, uint16_t port, size_t clientCapacity);
+struct Server* server_init(Config* config, uint16_t port);
 void server_free(struct Server* server);
 
 void server_freeDeadClients(struct Server* server);

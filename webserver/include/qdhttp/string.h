@@ -32,6 +32,10 @@ static inline size_t string_getSize(string str) {
 }
 void string_setSize(string str, size_t len);
 
+
+static inline size_t string_getCapacity(string str) {
+	return string_getHeader(str)->capacity;
+}
 static inline size_t string_getSpaceLeft(string str) {
 	struct string_header* sh = string_getHeader(str);
 	return sh->capacity - sh->length;

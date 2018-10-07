@@ -115,7 +115,11 @@ void client_update(struct Client* client, time_t currentTime) {
 	}
 }
 
-struct Server* server_init(string ip, uint16_t port, size_t clientCapacity) {
+struct Server* server_init(Config* config, uint16_t port) {
+	size_t clientCapacity = 64;
+	(void)config;
+	string ip = config_getProperty(config, "HTTP", "IP", "0.0.0.0");
+	//string webRoot = config_getProperty(config, "HTTP", "WebRoot", "../www");
 	struct Server* server = malloc(sizeof(struct Server));
 
 	server->fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
