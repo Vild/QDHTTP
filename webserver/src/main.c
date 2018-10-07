@@ -1,6 +1,7 @@
 #include <qdhttp/string.h>
 #include <qdhttp/socket.h>
 #include <qdhttp/log.h>
+#include <qdhttp/config.h>
 
 #include <stdio.h>
 #include <stdint.h>
@@ -45,15 +46,17 @@ int main(int argc, char** argv) {
 	}
 
 	// TODO: Read from argv
-	string ip = string_initFromCStr("0.0.0.0");
-	size_t maxAmountOfClient = 64;
+	Config* c = config_init("qdhttp-config.ini");
 
-	int isDaemon = false;
-	string logFile = NULL;
-	uint16_t port = 8888;
-	enum Request request = REQUEST_MUX;
+	uint16_t port = (uint16_t)config_getPropertyInt(c, "HTTP", "Port", 8888);
+	string requestStr = config_getProperty(c, "HTTP", "Request", "mux");
+	bool isRequestValueFromConfig = true;
 
-	(void)request;
+	string logFile = config_getProperty(c, "Log", "File", NULL);
+	if (logFile && string_getSize(logFile) == 0)
+		logFile = NULL;
+
+	bool isDaemon = config_getPropertyBool(c, "Server", "Daemon", false);
 
 	int showHelp = false;
 
@@ -66,51 +69,64 @@ int main(int argc, char** argv) {
 		{0, 0, 0, 0}
 	};
 
-	int c;
-	while ((c = getopt_long(argc, argv, ":hp:dl:s:", longopts, NULL)) != -1) {
-    switch (c) {
-    case 'h':
-			showHelp = true;
-			break;
-    case 'p':
-			port = (uint16_t)atoi(optarg);
-			break;
-    case 'd':
-			isDaemon = true;
-			break;
-    case 'l':
-			logFile = string_initFromCStr(optarg);
-			break;
-    case 's':
-			if (!strcmp(optarg, "fork"))
-				request = REQUEST_FORK;
-			else if (!strcmp(optarg, "thread"))
-				request = REQUEST_THREAD;
-			else if (!strcmp(optarg, "prefork"))
-				request = REQUEST_PREFORK;
-			else if (!strcmp(optarg, "mux"))
-				request = REQUEST_MUX;
-			else {
-				fprintf(stderr, "%s: option `-s' only accepts [fork | thread | prefork | mux]\n", argv[0]);
+	{
+		int opt;
+		while ((opt = getopt_long(argc, argv, ":hp:dl:s:", longopts, NULL)) != -1)
+			switch (opt) {
+			case 'h':
 				showHelp = true;
+				break;
+			case 'p':
+				port = (uint16_t)atoi(optarg);
+				break;
+			case 'd':
+				isDaemon = true;
+				break;
+			case 'l':
+				logFile = string_initFromCStr(optarg);
+				break;
+			case 's':
+				requestStr = optarg;
+				isRequestValueFromConfig = false;
+				break;
+			case 0:
+				/* getopt_long() set a variable, just keep going */
+				break;
+			case ':':
+				/* missing option argument */
+				fprintf(stderr, "%s: option `-%c' requires an argument\n", argv[0], optopt);
+				showHelp = true;
+				break;
+			case '?':
+			default:
+				/* invalid option */
+				fprintf(stderr, "%s: option `-%c' is invalid: ignored\n", argv[0], optopt);
+				showHelp = true;
+				break;
 			}
-			break;
-    case 0:
-			/* getopt_long() set a variable, just keep going */
-			break;
-    case ':':
-			/* missing option argument */
-			fprintf(stderr, "%s: option `-%c' requires an argument\n", argv[0], optopt);
-			showHelp = true;
-			break;
-    case '?':
-    default:
-			/* invalid option */
-			fprintf(stderr, "%s: option `-%c' is invalid: ignored\n", argv[0], optopt);
-			showHelp = true;
-			break;
-    }
 	}
+
+	enum Request request = REQUEST_MUX;
+
+	{
+		if (!strcmp(requestStr, "fork"))
+			request = REQUEST_FORK;
+		else if (!strcmp(requestStr, "thread"))
+			request = REQUEST_THREAD;
+		else if (!strcmp(requestStr, "prefork"))
+			request = REQUEST_PREFORK;
+		else if (!strcmp(requestStr, "mux"))
+			request = REQUEST_MUX;
+		else {
+			if (isRequestValueFromConfig)
+				fprintf(stderr, "%s: Config contains invalid request handling method, it only accepts [fork | thread | prefork | mux]\n", argv[0]);
+			else
+				fprintf(stderr, "%s: option `-s' only accepts [fork | thread | prefork | mux]\n", argv[0]);
+			showHelp = true;
+		}
+	}
+
+	(void)request;
 
 	if (showHelp) {
 		printf("%s:\n", argv[0]);
@@ -168,7 +184,8 @@ int main(int argc, char** argv) {
 
 	log_error(time(NULL), "error", "client 0.0.0.0", "This is not a error!");
 
-	server = server_init(ip, port, maxAmountOfClient);
+	server = server_init(c, port);
+	printf("Starting server...\n");
 	while (true) {
 		server_freeDeadClients(server);
 		server_aquireNewClients(server);
@@ -176,7 +193,9 @@ int main(int argc, char** argv) {
 	}
 	server_free(server);
 
+
 	log_free();
+	config_free(c);
 
 	return 0;
 }
