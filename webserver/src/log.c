@@ -39,7 +39,7 @@ void log_access(string host, time_t date, string request, uint16_t status, size_
 								labs(t->tm_gmtoff / SECSPERMIN) % 60L, request, status, bytes,
 								url, useragent);
 
-	syslog(LOG_INFO, output);
+	syslog(LOG_INFO, "%s", output);
 	if (accessFp)
 		fprintf(accessFp, "%s\n", output);
 	string_free(output);
@@ -62,7 +62,7 @@ void log_error(time_t date, string type, string client, string message) {
 								t->tm_hour, t->tm_min, t->tm_sec, 1900 + t->tm_year,
 								type, client, message);
 
-	syslog(LOG_ERR, output);
+	syslog(LOG_ERR, "%s", output);
 	if (errorFp)
 		fprintf(errorFp, "%s\n", output);
 	string_free(output);

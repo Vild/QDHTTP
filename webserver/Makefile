@@ -89,7 +89,7 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || true
 
 # == Build rules ==
 
-.PHONY: all clean init
+.PHONY: all clean init depend
 
 # Prevents Make from removing intermediary files on failure
 .SECONDARY:
@@ -127,13 +127,12 @@ clean:
 	@$(call END,$(BLUE),"  -\> RM","$(OBJ)")
 
 includePaths = $(shell echo | gcc -E -Wp,-v - 2>&1 | grep "\#include <" -A32 | egrep "^ " | sed "s/ /\-I/" | tr "\n" " ")
-depend: .depend
 .depend: $(SOURCES) $(HEADERS)
 	@$(call INFO,"::","Generating dependencies...");
 	@$(call BEG,$(BLUE),"  -\> RM","$(BIN)")
 	@$(RM) -rf ./.depend
 	@$(call END,$(BLUE),"  -\> RM","$(BIN)")
 	@$(call BEG,$(BLUE),"  -\> makedepend","$@ \<-- $^")
-	@makedepend $(includePaths) -p$(OBJ) -- $(CFLAGS_BASE) -- $(SOURCES) -f- | sed "s/\.\/src\///" > $@ $(ERRORS)
+	@makedepend $(includePaths) -p$(OBJ) -- $(CFLAGS_BASE) -- $(SOURCES) -f- | sed -e "s/src\///" -e "s/\.\///" > $@ $(ERRORS)
 	@$(call END,$(BLUE),"  -\> makedepend","$@ \<-- $^")
 include .depend

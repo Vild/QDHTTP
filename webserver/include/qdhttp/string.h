@@ -27,26 +27,25 @@ string string_init(size_t reservedSize);
 string string_initFromCStr(const char* text);
 void string_free(string str);
 
-inline size_t string_getSize(string str) {
+static inline size_t string_getSize(string str) {
 	return string_getHeader(str)->length;
 }
 void string_setSize(string str, size_t len);
 
-inline size_t string_getSpaceLeft(string str) {
+static inline size_t string_getSpaceLeft(string str) {
 	struct string_header* sh = string_getHeader(str);
 	return sh->capacity - sh->length;
 }
 
 void string_resize(string* str, size_t size);
-inline void string_minimize(string* str) {
+static inline void string_minimize(string* str) {
 	struct string_header* sh = string_getHeader(*str);
 	string_resize(str, sh->length);
 }
-inline void string_reserve(string* str, size_t size) {
+static inline void string_reserve(string* str, size_t size) {
 	struct string_header* sh = string_getHeader(*str);
 	string_resize(str, max(sh->capacity, size));
 }
-
 
 void string_format(string str, const char* fmt, ...);
 void string_append(string str, const char* text);

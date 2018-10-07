@@ -81,7 +81,7 @@ void client_update(struct Client* client, time_t currentTime) {
 			data = string_init(len);
 			string_setSize(data, len);
 			data[len] = '\0';
-			fread(data, (size_t)len, 1, fp);
+			len = (size_t)fread(data, len, 1, fp);
 			fclose(fp);
 		}
 
@@ -96,7 +96,7 @@ void client_update(struct Client* client, time_t currentTime) {
 		string_free(requestHeader);
 
 		printf("response: '%s'", response);
-		write(client->fd, response, string_getSize(response));
+		(void)write(client->fd, response, string_getSize(response));
 
 		client->dead = true;
 	}
