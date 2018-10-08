@@ -44,6 +44,8 @@ static struct Property* _addProperty(struct Section* s) {
 
 	struct Property* p = &s->properties[s->count];
 	p->name = p->value = NULL;
+
+	s->count++;
 	return p;
 }
 
@@ -138,6 +140,7 @@ string config_getProperty(Config* config, string section, string property, strin
 					return p->value;
 			}
 	}
+
 	return defaultValue;
 }
 

@@ -54,8 +54,9 @@ dkms.conf
 
 # Misc
 *~
-webserver/bin/
-.\#
+webserver/qdhttp
+.\#*
+\#*\#
 *.gdb_history
 unittest/results
 .depend

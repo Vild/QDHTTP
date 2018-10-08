@@ -1,5 +1,5 @@
 #include <qdhttp/string.h>
-#include <qdhttp/socket.h>
+#include <qdhttp/server.h>
 #include <qdhttp/log.h>
 #include <qdhttp/config.h>
 
@@ -184,7 +184,23 @@ int main(int argc, char** argv) {
 
 	log_error(time(NULL), "error", "client 0.0.0.0", "This is not a error!");
 
-	server = server_init(c, port);
+	string ip = config_getProperty(c, "HTTP", "IP", "0.0.0.0");
+	string webRoot = config_getProperty(c, "HTTP", "WebRoot", "../www/");
+
+	if (config_getPropertyBool(c, "Server", "Chroot", false)) {
+		printf("Will run chroot(\"%s\")\n", webRoot);
+		if (chroot(webRoot)) {
+			perror("chroot");
+			exit(EXIT_FAILURE);
+		}
+		if (chdir("/")) {
+			perror("chdir");
+			exit(EXIT_FAILURE);
+		}
+		string_format(webRoot, "/");
+	}
+
+	server = server_init(ip, port, webRoot);
 	printf("Starting server...\n");
 	while (true) {
 		server_freeDeadClients(server);

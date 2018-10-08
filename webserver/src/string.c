@@ -13,7 +13,7 @@ string string_init(size_t reservedSize) {
 }
 
 string string_initFromCStr(const char* text) {
-	size_t len = strlen(text) + 1;
+	size_t len = strlen(text);
 	struct string_header* sh = malloc(sizeof(struct string_header) + len + 1);
 
 	sh->length = len;

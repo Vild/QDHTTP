@@ -15,7 +15,7 @@ WARNINGS += -Wdisabled-optimization
 SRC := src/
 INC := include/
 OBJ := objects/
-BIN := bin/
+BIN :=
 
 
 # == Options ==
@@ -119,8 +119,8 @@ clean:
 	@$(call BEG,$(BLUE),"  -\> RM",".depend")
 	@$(RM) -rf .depend
 	@$(call END,$(BLUE),"  -\> RM",".depend")
-	@$(call BEG,$(BLUE),"  -\> RM","$(BIN)")
-	@$(RM) -rf $(BIN)
+	@$(call BEG,$(BLUE),"  -\> RM","$(TARGET)")
+	@$(RM) -rf $(TARGET)
 	@$(call END,$(BLUE),"  -\> RM","$(BIN)")
 	@$(call BEG,$(BLUE),"  -\> RM","$(OBJ)")
 	@$(RM) -rf $(OBJ)
