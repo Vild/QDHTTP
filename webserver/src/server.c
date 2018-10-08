@@ -10,12 +10,13 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/select.h>
+#include <sys/epoll.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 struct Server {
 	int fd;
-	fd_set readfds;
+	int epollFD;
 
   struct Client** clients;
   struct Client** clientsOther; ///< Used when removing items
@@ -46,6 +47,20 @@ Server* server_init(string ip, uint16_t port, string webRoot) {
 
 	if (listen(server->fd, (int)clientCapacity)) {
 		perror("listen");
+		exit(EXIT_FAILURE);
+	}
+
+	server->epollFD = epoll_create1(EPOLL_CLOEXEC);
+	if (server->epollFD == -1) {
+		perror("epoll_create1");
+		exit(EXIT_FAILURE);
+	}
+
+	struct epoll_event event;
+	event.data.fd = server->fd;
+	event.events = EPOLLIN;
+	if (epoll_ctl(server->epollFD, EPOLL_CTL_ADD, server->fd, &event) == -1) {
+		perror("epoll_ctl: server->fd");
 		exit(EXIT_FAILURE);
 	}
 
@@ -86,55 +101,70 @@ void server_freeDeadClients(Server* server) {
 	server->clients = list;
 }
 
-void server_aquireNewClients(Server* server) {
-	int highestFD = server->fd;
-
-	FD_ZERO(&server->readfds);
-	FD_SET(server->fd, &server->readfds);
-
-	for (size_t i = 0; i < server->clientCount; i++) {
-		struct Client* client = server->clients[i];
-
-		FD_SET(client->fd, &server->readfds);
-		highestFD = max(highestFD, client->fd);
-	}
-
-	struct timeval tv;
-	tv.tv_sec = 0;
-	tv.tv_usec = 250 * 1000;
-
-	//printf("select\n");
-	int r = select(highestFD + 1, &server->readfds, NULL, NULL, &tv);
-	if (r <= 0)
-		return;
-
-	//printf("server isset\n");
-	if (FD_ISSET(server->fd, &server->readfds) && server->clientCount < server->clientCapacity) {
-		struct sockaddr_in addr;
-		socklen_t addrlen = sizeof(addr);
-		int clientFD = accept(server->fd, (struct sockaddr*)&addr, &addrlen);
-
-		printf("Client from %s:%d connect!\n", inet_ntoa(addr.sin_addr), (int)ntohs(addr.sin_port));
-		if (clientFD > 0) {
-			struct Client* client = client_init(clientFD, time(NULL), addr, server->webRoot);
-			server->clients[server->clientCount++] = client;
-		}
-	}
-
-}
-
 void server_handleRequests(Server* server) {
+	#define MAX_EVENTS 64
+	static struct epoll_event events[MAX_EVENTS];
+
+	int nfds = epoll_wait(server->epollFD, events, MAX_EVENTS, 100);
+	if (nfds == -1) {
+		perror("epoll_wait");
+		exit(EXIT_FAILURE);
+	}
+
 	time_t currentTime = time(NULL);
+	for (int i = 0; i < nfds; i++) {
+		if (events[i].data.fd == server->fd && server->clientCount < server->clientCapacity) {
+			struct sockaddr_in addr;
+			socklen_t addrlen = sizeof(addr);
+			int clientFD = accept(server->fd, (struct sockaddr*)&addr, &addrlen);
+
+			printf("Client from %s:%d connect!\n", inet_ntoa(addr.sin_addr), (int)ntohs(addr.sin_port));
+
+			if (clientFD == -1) {
+				perror("accept");
+				exit(EXIT_FAILURE);
+			}
+			int flags = fcntl(clientFD, F_GETFL, 0);
+			if (flags < 0) {
+				perror("fcntl: F_GETFL");
+				exit(EXIT_FAILURE);
+			}
+			if (fcntl(clientFD, F_SETFL, flags | O_NONBLOCK) < 0) {
+				perror("fcntl: F_SETFL");
+				exit(EXIT_FAILURE);
+			}
+
+			struct epoll_event ev;
+			ev.events = EPOLLIN | EPOLLET;
+			ev.data.fd = clientFD;
+			if (epoll_ctl(server->epollFD, EPOLL_CTL_ADD, clientFD, &ev) == -1) {
+				perror("epoll_ctl: conn_sock");
+				exit(EXIT_FAILURE);
+			}
+
+			if (clientFD > 0) {
+				struct Client* client = client_init(clientFD, time(NULL), addr, server->webRoot);
+				server->clients[server->clientCount++] = client;
+			}
+		} else {
+			for (size_t j = 0; j < server->clientCount; j++) {
+				struct Client* client = server->clients[j];
+				if (events[j].data.fd == client->fd) {
+					size_t offset = string_getSize(client->request);
+					ssize_t amount = read(client->fd, client->request + offset, string_getSpaceLeft(client->request));
+					if (amount <= 0)
+						client->dead = true;
+					printf("Read %ld bytes for client from %s:%d\n", amount, inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port));
+					string_setSize(client->request, offset + (size_t)amount);
+					break;
+				}
+			}
+		}
+	}
 
 	for (size_t i = 0; i < server->clientCount; i++) {
 		struct Client* client = server->clients[i];
-		if (FD_ISSET(client->fd, &server->readfds)) {
-			ssize_t amount = read(client->fd, client->request, string_getSpaceLeft(client->request));
-			if (amount <= 0)
-				client->dead = true;
-			printf("Read %ld bytes for client from %s:%d\n", amount, inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port));
-			string_setSize(client->request, (size_t)amount);
-		}
 		client_update(client, currentTime);
 	}
 }
+

@@ -10,7 +10,6 @@ Server* server_init(string ip, uint16_t port, string webRoot);
 void server_free(Server* server);
 
 void server_freeDeadClients(Server* server);
-void server_aquireNewClients(Server* server);
 void server_handleRequests(Server* server);
 
 #endif

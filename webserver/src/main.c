@@ -204,7 +204,6 @@ int main(int argc, char** argv) {
 	printf("Starting server...\n");
 	while (true) {
 		server_freeDeadClients(server);
-		server_aquireNewClients(server);
 		server_handleRequests(server);
 	}
 	server_free(server);
