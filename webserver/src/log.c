@@ -25,7 +25,7 @@ void log_init(string* filepath, bool isDaemon) {
 	}
 }
 
-void log_access(string host, time_t date, string request, uint16_t status, size_t bytes, string url, string useragent) {
+void log_access(const string host, time_t date, const string request, uint16_t status, size_t bytes, const string url, const string useragent) {
 	static const char mon_name[][4] = {
 		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
 		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
@@ -45,7 +45,7 @@ void log_access(string host, time_t date, string request, uint16_t status, size_
 	string_free(output);
 }
 
-void log_error(time_t date, string type, string client, string message) {
+void log_error(time_t date, const string type, const string client, const string message) {
 	static const char wday_name[][4] = {
 		"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
 	};

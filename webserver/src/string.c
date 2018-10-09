@@ -8,17 +8,19 @@ string string_init(size_t reservedSize) {
 	struct string_header* sh = malloc(sizeof(struct string_header) + reservedSize + 1);
 	sh->length = 0;
 	sh->capacity = reservedSize;
-	sh->str[0] = sh->str[reservedSize + 1] = '\0';
+	sh->str[0] = sh->str[reservedSize] = '\0';
 	return sh->str;
 }
 
 string string_initFromCStr(const char* text) {
+	if (!text)
+		return NULL;
 	size_t len = strlen(text);
 	struct string_header* sh = malloc(sizeof(struct string_header) + len + 1);
 
 	sh->length = len;
 	sh->capacity = len;
-	sh->str[len + 1] = '\0';
+	sh->str[len] = '\0';
 	memcpy(sh->str, text, len);
 	return sh->str;
 }
@@ -43,7 +45,7 @@ void string_resize(string* str, size_t size) {
 	sh = realloc(sh, sizeof(struct string_header) + size + 1);
 	sh->length = min(sh->length, size);
 	sh->capacity = size;
-	sh->str[size + 1] = '\0';
+	sh->str[size] = '\0';
 	*str = sh->str;
 }
 

@@ -182,8 +182,6 @@ int main(int argc, char** argv) {
 	log_init(&logFile, isDaemon);
 	string_free(logFile);
 
-	log_error(time(NULL), "error", "client 0.0.0.0", "This is not a error!");
-
 	string ip = config_getProperty(c, "HTTP", "IP", "0.0.0.0");
 	string webRoot = config_getProperty(c, "HTTP", "WebRoot", "../www/");
 
