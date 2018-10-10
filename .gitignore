@@ -61,3 +61,5 @@ webserver/qdhttp
 unittest/results
 .depend
 
+*.err
+*.log

@@ -1,15 +1,18 @@
 #include <qdhttp/client.h>
 #include <qdhttp/log.h>
+#include <qdhttp/helper.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
-#define dropClientAfter 2 /* Seconds */
+#define dropClientAfter 8 /* Seconds */
 
 #define HTTPMethod_data(x)											\
 	x(HTTPMETHOD_UNKNOWN, "UNKNOWN")							\
@@ -22,11 +25,11 @@ enum HTTPMethod {
 #undef x
 };
 
-static char* const HTTPMethod_str[] = {
+/*static char* const HTTPMethod_str[] = {
 #define x(name, str) str,
 	HTTPMethod_data(x)
 #undef x
-};
+};*/
 #undef HTTPMethod_data
 
 
@@ -55,6 +58,76 @@ static char* const HTTPCode_str[] = {
 	HTTPCode_data(x)
 #undef x
 };
+
+#define MIME_data(x)																										\
+	x(MIME_UNKNOWN, "", "application/octet-stream")												\
+		x(MIME_aac, "aac", "audio/aac")																			\
+		x(MIME_avi, "avi", "video/x-msvideo")																\
+		x(MIME_bin, "bin", "application/octet-stream")											\
+		x(MIME_bmp, "bmp", "image/bmp")																			\
+		x(MIME_bz, "bz", "application/x-bzip")															\
+		x(MIME_bz2, "bz2", "application/x-bzip2")														\
+		x(MIME_csh, "csh", "application/x-csh")															\
+		x(MIME_css, "css", "text/css")																			\
+		x(MIME_csv, "csv", "text/csv")																			\
+		x(MIME_gif, "gif", "image/gif")																			\
+		x(MIME_htm, "htm", "text/html")																			\
+		x(MIME_html, "html", "text/html")																		\
+		x(MIME_ico, "ico", "image/x-icon")																	\
+		x(MIME_jar, "jar", "application/java-archive")											\
+		x(MIME_jpeg, "jpeg", "image/jpeg")																	\
+		x(MIME_jpg, "jpg", "image/jpeg")																		\
+		x(MIME_js, "js", "application/javascript")													\
+		x(MIME_json, "json", "application/json")														\
+		x(MIME_odp, "odp", "application/vnd.oasis.opendocument.presentation") \
+		x(MIME_ods, "ods", "application/vnd.oasis.opendocument.spreadsheet") \
+		x(MIME_odt, "odt", "application/vnd.oasis.opendocument.text")				\
+		x(MIME_oga, "oga", "audio/ogg")																			\
+		x(MIME_ogv, "ogv", "video/ogg")																			\
+		x(MIME_ogx, "ogx", "application/ogg")																\
+		x(MIME_otf, "otf", "font/otf")																			\
+		x(MIME_png, "png", "image/png")																			\
+		x(MIME_pdf, "pdf", "application/pdf")																\
+		x(MIME_rar, "rar", "application/x-rar-compressed")									\
+		x(MIME_rtf, "rtf", "application/rtf")																\
+		x(MIME_sh, "sh", "application/x-sh")																\
+		x(MIME_svg, "svg", "image/svg+xml")																	\
+		x(MIME_tar, "tar", "application/x-tar")															\
+		x(MIME_ttf, "ttf", "font/ttf")																			\
+		x(MIME_txt, "txt", "text/plain")																		\
+		x(MIME_wav, "wav", "audio/wav")																			\
+		x(MIME_weba, "weba", "audio/webm")																	\
+		x(MIME_webm, "webm", "video/webm")																	\
+		x(MIME_webp, "webp", "image/webp")																	\
+		x(MIME_woff, "woff", "font/woff")																		\
+		x(MIME_woff2, "woff2", "font/woff2")																\
+		x(MIME_xhtml, "xhtml", "application/xhtml+xml")											\
+		x(MIME_xml, "xml", "application/xml")																\
+		x(MIME_xul, "xul", "application/vnd.mozilla.xul+xml")								\
+		x(MIME_zip, "zip", "application/zip")																\
+		x(MIME_7z, "7z", "application/x-7z-compressed")
+
+enum MIME {
+#define x(name, ext, mime) name,
+	MIME_data(x)
+#undef x
+};
+
+static char* const MIME_mime[] = {
+#define x(name, ext, mime) mime,
+	MIME_data(x)
+#undef x
+};
+
+static enum MIME MIME_fromString(char* str) {
+#define x(name, ext, mime)											\
+	if (!strcmp(str, ext)) return name; else
+
+	MIME_data(x)
+#undef x
+	return MIME_UNKNOWN;
+}
+#undef MIME_data
 
 struct KeyValue {
 	string key;
@@ -108,7 +181,6 @@ struct Client* client_init(int fd, time_t currentTime, struct sockaddr_in addr, 
 }
 
 void client_free(struct Client* client) {
-	printf("Freeing client %s:%d\n", inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port));
 	close(client->fd);
 	string_free(client->request);
 	free(client);
@@ -252,7 +324,6 @@ static bool _extractRequest(struct Request* request, string requestData) {
 
 	// Parse headers
 	request->headerCount = headerCount;
-	printf("Will malloc: %zu * %zu\n", sizeof(struct KeyValue), request->headerCount);
 	request->headers = malloc(sizeof(struct KeyValue) * request->headerCount);
 	size_t idx = 0;
 	while ((curLine = strtok_r(NULL, "\r\n", &lineSave))) {
@@ -283,7 +354,7 @@ static bool _extractRequest(struct Request* request, string requestData) {
 	return true;
 }
 
-static FILE* _convertURLToFilePathAndOpen(struct Request* request, string webRoot) {
+static FILE* _convertURLToFilePathAndOpen(struct Request* request, enum MIME* mime, time_t* lastModifiedTime, size_t* fileLength, string webRoot) {
 	if (request->requestFulfillmentStatus != HTTPCODE_OK)
 		return NULL;
 
@@ -296,53 +367,112 @@ static FILE* _convertURLToFilePathAndOpen(struct Request* request, string webRoo
 	// As according to the RFC it only used for talking to proxys, and this
 	// webserver is a webserver and not a proxy.
 
-	string url = string_initFromCStr(request->url);
-	string_reserve(&url, 256);
+	const size_t dstLen = 256;
+	string url = string_init(dstLen);
+	string_append(url, "/");
 
-	if (!strcmp(url, "/"))
+	string rURL = request->url;
+	if (!strcmp(rURL, "/"))
 		string_format(url, "/index.html");
 	else {
-		// First remove ./
-/*		char* src = url + 1;
-			char* dst = url + 1;*/
+		size_t srcLen = string_getSize(request->url);
+		size_t src = 1;
+		size_t dst = 1;
+
+		while (src < srcLen && rURL[src]) {
+			if (url[dst - 1] == '/' && rURL[src] == '.') {
+				switch (rURL[src + 1]) {
+				case '\0': // Found "/.\0"
+					src++;
+					continue;
+				case '/': // Found "/./"
+					src += 2;
+					continue;
+				case '.':
+					if (rURL[src + 2] == '/' || !rURL[src + 2]) { // Found "/../" or "/..\0"
+						// Remove the first '/' in the match
+						// Make it a valid CStr
+						if (dst > 1)
+							url[dst - 1] = '\0';
+						char* afterTheSlash = strrchr(url, '/');
+						// This is will be false if the url starts with "/../"
+						// Reset the dst to the char after the slash
+						dst = (size_t)afterTheSlash - (size_t)url + 1;
+
+						src += 2; // Remove the ".."
+						continue;
+					}
+					break;
+				}
+			}
+
+
+			if (rURL[src] != '/' || url[dst - 1] != '/') {
+				url[dst] = rURL[src];
+				dst++;
+			}
+			src++;
+		}
+
+		string_setSize(url, dst);
 	}
+
+	if (url[string_getSize(url) - 1] == '/')
+		string_append_format(url, "index.html");
 
 	string path = string_init(512);
 	string_append(path, webRoot);
-	string_append(path, (path[string_getSize(path) - 1] == '/') ? url + 1 : url);
-	printf("Will open: %s\n", path);
+	if (path[string_getSize(webRoot) - 1] != '/')
+		string_append(path, "/");
+	string_append(path, url + 1);
+
+	struct stat path_stat;
+	if (stat(path, &path_stat) == -1) {
+		request->requestFulfillmentStatus = (errno == ENOENT) ? HTTPCODE_NOT_FOUND : HTTPCODE_FORBIDDEN;
+		return NULL;
+	}
+	if (path_stat.st_size >= 0)
+		*fileLength = (size_t)path_stat.st_size;
+	*lastModifiedTime = path_stat.st_mtim.tv_sec;
+	if (S_ISDIR(path_stat.st_mode))
+		string_append(path, "/index.html");
+
 	FILE* fp = fopen(path, "r");
+
 	if (!fp) {
 		request->requestFulfillmentStatus = HTTPCODE_FORBIDDEN;
 		return NULL;
 	}
 
-	//request->requestFulfillmentStatus = HTTPCODE_INTERNAL_SERVER_ERROR;
+	char* extension = strrchr(path, '.');
+	if (extension) {
+		extension++;
+		*mime = MIME_fromString(extension);
+	}
+
 	return fp;
 }
 
 void client_update(struct Client* client, time_t currentTime) {
 	client->dead |= (currentTime - client->connectAt) >= dropClientAfter;
+
 	if (client->dead)
-		printf("Client %s:%d is dead\n", inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port));
+		log_error(time(NULL), "error", inet_ntoa(client->addr.sin_addr), "Client was dropped, did not send a correct request withing " STR_HELPER(dropClientAfter) " seconds!");
 
 	struct Request request;
 	memset(&request, 0, sizeof(struct Request));
 
 	if (!client->dead && _extractRequest(&request, client->request)) {
-		printf("Client %s:%d got a request:\n", inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port));
+		string useragent = _getHeader(&request, "User-Agent", "");
+		string refererURL = _getHeader(&request, "Referer", "");
 
-		printf("\tfullRequestLine: %s\n", request.fullRequestLine);
-		printf("\tmethod: %s\n", HTTPMethod_str[request.method]);
-		printf("\turl: %s\n", request.url);
-		printf("\tquerys (%zu)\n", request.queryCount);
-		for(size_t i = 0; i < request.queryCount; i++)
-			printf("\t\t'%s' = '%s'\n", request.querys[i].key, request.querys[i].value);
-		//printf("\thttpVersion: %s\n", request.httpVersion);
-		printf("\theaders (%zu)\n", request.headerCount);
-		for(size_t i = 0; i < request.headerCount; i++)
-			printf("\t\t'%s' = '%s'\n", request.headers[i].key, request.headers[i].value);
-		printf("\trequestFulfillmentStatus: %s\n", HTTPCode_str[request.requestFulfillmentStatus]);
+		enum MIME mime = MIME_UNKNOWN;
+		time_t lastModifiedTime;
+		size_t fileLength = 0;
+		FILE* requestedFile = _convertURLToFilePathAndOpen(&request, &mime, &lastModifiedTime, &fileLength, client->webRoot);
+		if (!requestedFile)
+			mime = MIME_html;
+		struct tm* lastModified = gmtime(&lastModifiedTime);
 
 		string response = string_init(0x1000);
 		string_append_format(response, "HTTP/1.0 %.3d %s\r\n", HTTPCode_num[request.requestFulfillmentStatus], HTTPCode_str[request.requestFulfillmentStatus]);
@@ -366,30 +496,30 @@ void client_update(struct Client* client, time_t currentTime) {
 												 t->tm_min,
 												 t->tm_sec);
 		string_append(response, "Server: QDHTTP Version (idk)\r\n");
-		string_append(response, "Content-type: text/html\r\n");
+		string_append_format(response, "Content-Type: %s\r\n", MIME_mime[mime]);
+		if (requestedFile) {
+			string_append_format(response, "Content-Length: %zu\r\n", fileLength);
+			string_append_format(response, "Last-Modified: %.3s, %.2d %.3s %.4d %.2d:%.2d:%.2d GMT\r\n",
+													 wday_name[lastModified->tm_wday],
+													 lastModified->tm_mday,
+													 mon_name[lastModified->tm_mon],
+													 1900 + lastModified->tm_year,
+													 lastModified->tm_hour,
+													 lastModified->tm_min,
+													 lastModified->tm_sec);
+		}
 		string_append(response, "Connection: close\r\n");
 		string_append(response, "\r\n");
 
-		//TODO: parse request
-		string useragent = _getHeader(&request, "User-Agent", "");
-		string refererURL = _getHeader(&request, "Referer", "");
-		FILE* requestedFile = _convertURLToFilePathAndOpen(&request, client->webRoot);
-
-		size_t dataSize = 0;
 		if (requestedFile) {
-			fseek(requestedFile, 0, SEEK_END);
-			size_t len = (size_t)ftell(requestedFile);
-			rewind(requestedFile);
+			if (request.method == HTTPMETHOD_GET) {
+				string data = string_init(fileLength);
+				(void)fread(data, fileLength, 1, requestedFile);
 
-			string data = string_init(len);
-			string_setSize(data, len);
-			data[len] = '\0';
-			len = (size_t)fread(data, len, 1, requestedFile);
+				string_append(response, data);
+				string_free(data);
+			}
 			fclose(requestedFile);
-
-			dataSize = string_getSize(data);
-			string_append(response, data);
-			string_free(data);
 		} else {
 			// This error data is inlined into this file, incase the www folder cannot
 			// be access, or anything else due to file IO. This way the error message
@@ -399,7 +529,7 @@ void client_update(struct Client* client, time_t currentTime) {
 				"	<head>\n"
 				"		<title>HTTP Error %d - %s</title>\n"
 				"		<meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\n"
-				"		<link rel=\"stylesheet\" href=\"css/style.css\">\n"
+				"		<link rel=\"stylesheet\" href=\"/css/style.css\">\n"
 				"	</head>\n"
 				"	<body>\n"
 				"		<div id=\"content\">\n"
@@ -412,9 +542,7 @@ void client_update(struct Client* client, time_t currentTime) {
 			string_append_format(response, errorData, HTTPCode_num[request.requestFulfillmentStatus], HTTPCode_str[request.requestFulfillmentStatus], HTTPCode_num[request.requestFulfillmentStatus], HTTPCode_str[request.requestFulfillmentStatus], "Error explaination");
 			log_error(currentTime, "error", inet_ntoa(client->addr.sin_addr), HTTPCode_str[request.requestFulfillmentStatus]);
 		}
-		log_access(inet_ntoa(client->addr.sin_addr), currentTime, request.fullRequestLine, HTTPCode_num[request.requestFulfillmentStatus], dataSize, refererURL, useragent);
-
-		printf("response: \n==Response Start==\n%s\n==Response End==\n", response);
+		log_access(inet_ntoa(client->addr.sin_addr), currentTime, request.fullRequestLine, HTTPCode_num[request.requestFulfillmentStatus], fileLength, refererURL, useragent);
 
 		size_t responseLen = string_getSize(response);
 		size_t offset = 0;

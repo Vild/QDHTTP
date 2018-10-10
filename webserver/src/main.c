@@ -186,7 +186,6 @@ int main(int argc, char** argv) {
 	string webRoot = config_getProperty(c, "HTTP", "WebRoot", "../www/");
 
 	if (config_getPropertyBool(c, "Server", "Chroot", false)) {
-		printf("Will run chroot(\"%s\")\n", webRoot);
 		if (chroot(webRoot)) {
 			perror("chroot");
 			exit(EXIT_FAILURE);

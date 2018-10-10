@@ -64,7 +64,6 @@ static struct Section* _addSection(Config* c) {
 }
 
 Config* config_init(string filepath) {
-	printf("Loading config %s\n", filepath);
 	Config* config = malloc(sizeof(Config));
 	config->sections = NULL;
 	config->count = config->capacity = 0;
@@ -97,7 +96,6 @@ Config* config_init(string filepath) {
 
 			*end = '\0';
 			curSec->name = string_initFromCStr(&buffer[1]);
-			printf("[%s]\n", curSec->name);
 		} else {
 			if (!curSec) {
 				fprintf(stderr, "Line %zu: Properties must be within a section!\n", lineNumber);
@@ -115,7 +113,6 @@ Config* config_init(string filepath) {
 
 			p->name = string_initFromCStr(buffer);
 			p->value = string_initFromCStr(middle + 1);
-			printf("  %s='%s'\n", p->name, p->value);
 		}
 	}
 

@@ -118,8 +118,6 @@ void server_handleRequests(Server* server) {
 			socklen_t addrlen = sizeof(addr);
 			int clientFD = accept(server->fd, (struct sockaddr*)&addr, &addrlen);
 
-			printf("Client from %s:%d connect!\n", inet_ntoa(addr.sin_addr), (int)ntohs(addr.sin_port));
-
 			if (clientFD == -1) {
 				perror("accept");
 				exit(EXIT_FAILURE);
@@ -149,12 +147,13 @@ void server_handleRequests(Server* server) {
 		} else {
 			for (size_t j = 0; j < server->clientCount; j++) {
 				struct Client* client = server->clients[j];
-				if (events[j].data.fd == client->fd) {
+				if (events[i].data.fd == client->fd) {
 					size_t offset = string_getSize(client->request);
 					ssize_t amount = read(client->fd, client->request + offset, string_getSpaceLeft(client->request));
-					if (amount <= 0)
+					if (amount <= 0) {
 						client->dead = true;
-					printf("Read %ld bytes for client from %s:%d\n", amount, inet_ntoa(client->addr.sin_addr), (int)ntohs(client->addr.sin_port));
+						break;
+					}
 					string_setSize(client->request, offset + (size_t)amount);
 					break;
 				}

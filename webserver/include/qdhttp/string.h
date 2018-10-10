@@ -51,8 +51,8 @@ static inline void string_reserve(string* str, size_t size) {
 	string_resize(str, max(sh->capacity, size));
 }
 
-void string_format(string str, const char* fmt, ...);
+void string_format(string str, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 void string_append(string str, const char* text);
-void string_append_format(string str, const char* fmt, ...);
+void string_append_format(string str, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 
 #endif
