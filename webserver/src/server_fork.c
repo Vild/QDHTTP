@@ -49,10 +49,8 @@ static void server_fork_handleRequests(struct Server* server) {
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
 	int clientFD = accept(server->fd, (struct sockaddr*)&addr, &addrlen);
-	if (clientFD == -1) {
-		perror("accept");
-		exit(EXIT_FAILURE);
-	}
+	if (clientFD == -1) // Probably a interrupts fault. Just return to retry.
+		return;
 
 	int pid = fork();
 	if (pid < 0) {

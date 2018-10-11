@@ -36,9 +36,12 @@ static void onSignal(int sig) {
 static void onChildDeath(int sig) {
 	(void)sig;
 	int status;
-	wait(&status);
+	while (true) {
+		pid_t pid = waitpid(-1, &status, WNOHANG);
+		if (pid <= 0)
+			break;
+	}
 }
-
 
 int main(int argc, char** argv) {
   struct sigaction sa;
