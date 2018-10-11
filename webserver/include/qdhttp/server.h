@@ -4,12 +4,33 @@
 #include <qdhttp/string.h>
 #include <stdint.h>
 
-typedef struct Server Server;
+struct Server;
 
-Server* server_init(string ip, uint16_t port, string webRoot);
-void server_free(Server* server);
+struct ServerHandler {
+	void (*init)(struct Server* server);
+	void (*free)(struct Server* server);
 
-void server_freeDeadClients(Server* server);
-void server_handleRequests(Server* server);
+	void (*handleRequests)(struct Server* server);
+};
+
+struct Server {
+	int fd;
+
+	struct ServerHandler* handler;
+
+  struct Client** clients;
+  struct Client** clientsOther; ///< Used when removing items
+	size_t clientCount;
+	size_t clientCapacity;
+
+	string webRoot;
+};
+
+
+struct Server* server_init(struct ServerHandler* handler, string ip, uint16_t port, string webRoot);
+void server_free(struct Server* server);
+
+void server_freeDeadClients(struct Server* server);
+void server_handleRequests(struct Server* server);
 
 #endif

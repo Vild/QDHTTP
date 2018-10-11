@@ -1,9 +1,16 @@
 #!/bin/bash
 
-thePID=`cd webserver; ./qdhttp -d`
 cd unittest
-rm -rf results/run1/* || true
-./check.sh run1
+
+thePID=`cd ../webserver; ./qdhttp -d -s fork`
+rm -rf results/fork/* || true
+./check.sh fork
 CODE=$?
 kill $thePID
-exit $CODE
+
+thePID=`cd ../webserver; ./qdhttp -d -s mux`
+rm -rf results/mux/* || true
+./check.sh mux
+CODE=$?
+kill $thePID
+

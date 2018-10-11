@@ -3,6 +3,11 @@
 #include <qdhttp/log.h>
 #include <qdhttp/config.h>
 
+#include <qdhttp/server_fork.h>
+#include <qdhttp/server_mux.h>
+#include <qdhttp/server_prefork.h>
+#include <qdhttp/server_thread.h>
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -12,6 +17,7 @@
 #include <string.h>
 
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -19,19 +25,20 @@ struct Server* server = NULL;
 static void onSignal(int sig) {
 	if (sig == SIGINT)
 		printf("\nCaught SIGINT. Terminating...\n");
-	else if (sig == SIGINT)
-		printf("\nCaught SIGINT. Terminating...\n");
-	if (server)
+
+	if (!server)
 		server_free(server);
+
+	kill(0, SIGINT);
 	exit(0);
 }
 
-enum Request {
-	REQUEST_FORK = 0,
-	REQUEST_THREAD,
-	REQUEST_PREFORK,
-	REQUEST_MUX,
-};
+static void onChildDeath(int sig) {
+	(void)sig;
+	int status;
+	wait(&status);
+}
+
 
 int main(int argc, char** argv) {
   struct sigaction sa;
@@ -40,7 +47,16 @@ int main(int argc, char** argv) {
     perror("sigaction()");
     return -1;
   }
+	if (sigaction(SIGTERM, &sa, 0) != 0) {
+    perror("sigaction()");
+    return -1;
+  }
   if (sigaction(SIGPIPE, &sa, 0) != 0) {
+    perror("sigaction()");
+    return -1;
+	}
+	sa.sa_handler = &onChildDeath;
+  if (sigaction(SIGCHLD, &sa, 0) != 0) {
     perror("sigaction()");
     return -1;
 	}
@@ -106,17 +122,17 @@ int main(int argc, char** argv) {
 			}
 	}
 
-	enum Request request = REQUEST_MUX;
+	struct ServerHandler* (*getHandler)(void) = NULL;
 
 	{
 		if (!strcmp(requestStr, "fork"))
-			request = REQUEST_FORK;
-		else if (!strcmp(requestStr, "thread"))
-			request = REQUEST_THREAD;
+			getHandler = &server_fork_getHandler;
+/*		else if (!strcmp(requestStr, "thread"))
+			getHandler = &server_thread_getHandler;
 		else if (!strcmp(requestStr, "prefork"))
-			request = REQUEST_PREFORK;
+			getHandler = &server_prefork_getHandler;*/
 		else if (!strcmp(requestStr, "mux"))
-			request = REQUEST_MUX;
+			getHandler = &server_mux_getHandler;
 		else {
 			if (isRequestValueFromConfig)
 				fprintf(stderr, "%s: Config contains invalid request handling method, it only accepts [fork | thread | prefork | mux]\n", argv[0]);
@@ -125,8 +141,6 @@ int main(int argc, char** argv) {
 			showHelp = true;
 		}
 	}
-
-	(void)request;
 
 	if (showHelp) {
 		printf("%s:\n", argv[0]);
@@ -197,8 +211,7 @@ int main(int argc, char** argv) {
 		string_format(webRoot, "/");
 	}
 
-	server = server_init(ip, port, webRoot);
-	printf("Starting server...\n");
+	server = server_init((*getHandler)(), ip, port, webRoot);
 	while (true) {
 		server_freeDeadClients(server);
 		server_handleRequests(server);
