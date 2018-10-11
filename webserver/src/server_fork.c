@@ -73,7 +73,6 @@ static void server_fork_handleRequests(struct Server* server) {
 		exit(EXIT_FAILURE);
 	}
 
-	time_t currentTime = time(NULL);
 	struct Client* client = client_init(clientFD, time(NULL), addr, server->webRoot);
 	while (!client->dead) {
 		size_t offset = string_getSize(client->request);
@@ -82,8 +81,10 @@ static void server_fork_handleRequests(struct Server* server) {
 			client->dead = true;
 			break;
 		}
+
 		string_setSize(client->request, offset + (size_t)amount);
-		client_update(client, currentTime);
+		client_update(client, time(NULL));
+
 		if (amount == 0) {
 			client->dead = true;
 			break;

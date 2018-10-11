@@ -2,7 +2,7 @@ PROJECT := QDHTTP
 SHELL = bash
 
 CC ?= gcc
-CFLAGS_BASE := -Iinclude -std=gnu1x -finline-functions -fPIC -fPIE -pipe -D_DEFAULT_SOURCE
+CFLAGS_BASE := -Iinclude -std=gnu1x -finline-functions -fPIC -fPIE -pipe -D_DEFAULT_SOURCE -pthread
 LFLAGS := -lm
 WARNINGS := -Wall -Wextra -Wshadow
 WARNINGS += -Wfloat-equal -Wmissing-prototypes -Wunused-value -Wunused-parameter

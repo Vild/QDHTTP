@@ -130,9 +130,9 @@ int main(int argc, char** argv) {
 	{
 		if (!strcmp(requestStr, "fork"))
 			getHandler = &server_fork_getHandler;
-/*		else if (!strcmp(requestStr, "thread"))
+		else if (!strcmp(requestStr, "thread"))
 			getHandler = &server_thread_getHandler;
-		else if (!strcmp(requestStr, "prefork"))
+/*		else if (!strcmp(requestStr, "prefork"))
 			getHandler = &server_prefork_getHandler;*/
 		else if (!strcmp(requestStr, "mux"))
 			getHandler = &server_mux_getHandler;
