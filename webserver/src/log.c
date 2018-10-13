@@ -12,16 +12,18 @@ static FILE* errorFp = NULL;
 #define SECSPERHOUR (60 * SECSPERMIN)
 #define SECSPERMIN (60)
 
-void log_init(string* filepath, bool isDaemon) {
+void log_init(string filepath, bool isDaemon) {
 	openlog("QDHTTP", LOG_NDELAY, isDaemon ? LOG_DAEMON : LOG_USER);
-	if (*filepath) {
-		string_reserve(filepath, string_getSize(*filepath) + 4);
-		string_append(*filepath, ".log");
-		accessFp = fopen(*filepath, "a+");
+	if (filepath) {
+		string path = string_initFromCStr(filepath);
+		string_reserve(&path, string_getSize(path) + 4);
+		string_append(path, ".log");
+		accessFp = fopen(path, "a+");
 
-		string_setSize(*filepath, string_getSize(*filepath) - 3);
-		string_append(*filepath, "err");
-		errorFp = fopen(*filepath, "a+");
+		string_setSize(path, string_getSize(path) - 3);
+		string_append(path, "err");
+		errorFp = fopen(path, "a+");
+		string_free(path);
 	}
 }
 

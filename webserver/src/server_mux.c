@@ -43,6 +43,7 @@ static void server_mux_init(struct Server* server) {
 	}
 
 	struct epoll_event event;
+	ZERO_STRUCT(event);
 	event.data.fd = server->fd;
 	event.events = EPOLLIN;
 	if (epoll_ctl(serverMuxHandler.epollFD, EPOLL_CTL_ADD, server->fd, &event) == -1) {
@@ -88,6 +89,7 @@ static void server_mux_handleRequests(struct Server* server) {
 			}
 
 			struct epoll_event ev;
+			ZERO_STRUCT(ev);
 			ev.events = EPOLLIN | EPOLLET;
 			ev.data.fd = clientFD;
 			if (epoll_ctl(serverMuxHandler.epollFD, EPOLL_CTL_ADD, clientFD, &ev) == -1) {
@@ -109,7 +111,7 @@ static void server_mux_handleRequests(struct Server* server) {
 						client->dead = true;
 						break;
 					}
-					string_setSize(client->request, offset + (size_t)amount);					
+					string_setSize(client->request, offset + (size_t)amount);
 					if (amount == 0) {
 						client->dead = true;
 						break;

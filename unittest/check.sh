@@ -28,11 +28,16 @@ fi
 
 mkdir -p $RES/$1
 
-printf "%b" "$(cat $SRC/$GF)\r\n" | nc -q 10 localhost $PORT > $RES/$1/$GF
-printf "%b" "$(cat $SRC/$HF)\r\n" | nc -q 10 localhost $PORT > $RES/$1/$HF
+echo "Part 1"
+printf "%b" "$(cat $SRC/$GF)\r\n" | nc -q 2 localhost $PORT > $RES/$1/$GF
 
-printf "%b" "$(cat $SRC/$NF)\r\n" | nc -q 10 localhost $PORT > $RES/$1/$NF
+echo "Part 2"
+printf "%b" "$(cat $SRC/$HF)\r\n" | nc -q 2 localhost $PORT > $RES/$1/$HF
 
+echo "Part 3"
+printf "%b" "$(cat $SRC/$NF)\r\n" | nc -q 2 localhost $PORT > $RES/$1/$NF
+
+echo "Part 4"
 # check concurrent request handling
 ab -c 50 -n 1000 -g $RES/$1/$GP localhost:$PORT/index.html > $RES/$1/$AR
 cp $SRC/$PLOT $RES/$1/$PLOT

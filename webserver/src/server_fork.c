@@ -63,6 +63,7 @@ static void server_fork_handleRequests(struct Server* server) {
 	}
 
   struct sigaction sa;
+	ZERO_STRUCT(sa);
 	sa.sa_handler = &onSignal;
 	if (sigaction(SIGINT, &sa, 0) != 0) {
     perror("sigaction()");

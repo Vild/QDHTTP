@@ -425,10 +425,12 @@ static FILE* _convertURLToFilePathAndOpen(struct Request* request, enum MIME* mi
 	if (path[string_getSize(webRoot) - 1] != '/')
 		string_append(path, "/");
 	string_append(path, url + 1);
+	string_free(url);
 
 	struct stat path_stat;
 	if (stat(path, &path_stat) == -1) {
 		request->requestFulfillmentStatus = (errno == ENOENT) ? HTTPCODE_NOT_FOUND : HTTPCODE_FORBIDDEN;
+		string_free(path);
 		return NULL;
 	}
 	if (path_stat.st_size >= 0)
@@ -441,6 +443,7 @@ static FILE* _convertURLToFilePathAndOpen(struct Request* request, enum MIME* mi
 
 	if (!fp) {
 		request->requestFulfillmentStatus = HTTPCODE_FORBIDDEN;
+		string_free(path);
 		return NULL;
 	}
 
@@ -449,6 +452,7 @@ static FILE* _convertURLToFilePathAndOpen(struct Request* request, enum MIME* mi
 		extension++;
 		*mime = MIME_fromString(extension);
 	}
+	string_free(path);
 
 	return fp;
 }
@@ -467,7 +471,7 @@ void client_update(struct Client* client, time_t currentTime) {
 		string refererURL = _getHeader(&request, "Referer", "");
 
 		enum MIME mime = MIME_UNKNOWN;
-		time_t lastModifiedTime;
+		time_t lastModifiedTime = 0;
 		size_t fileLength = 0;
 		FILE* requestedFile = _convertURLToFilePathAndOpen(&request, &mime, &lastModifiedTime, &fileLength, client->webRoot);
 		if (!requestedFile)
@@ -555,6 +559,7 @@ void client_update(struct Client* client, time_t currentTime) {
 			offset += (size_t)sent;
 		} while(offset < responseLen);
 
+		string_free(response);
 		_freeRequest(&request);
 		client->dead = true;
 	}

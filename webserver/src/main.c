@@ -22,12 +22,18 @@
 #include <unistd.h>
 
 struct Server* server = NULL;
+struct Config* config = NULL;
 static void onSignal(int sig) {
 	if (sig == SIGINT)
 		printf("\nCaught SIGINT. Terminating...\n");
 
-	if (!server)
+	if (server)
 		server_free(server);
+
+	log_free();
+
+	if (config)
+		config_free(config);
 
 	kill(0, SIGINT);
 	exit(0);
@@ -45,6 +51,7 @@ static void onChildDeath(int sig) {
 
 int main(int argc, char** argv) {
   struct sigaction sa;
+	ZERO_STRUCT(sa);
 	sa.sa_handler = &onSignal;
 	if (sigaction(SIGINT, &sa, 0) != 0) {
     perror("sigaction()");
@@ -64,18 +71,18 @@ int main(int argc, char** argv) {
     return -1;
 	}
 
-	// TODO: Read from argv
-	Config* c = config_init("qdhttp-config.ini");
+	config = config_init("qdhttp-config.ini");
 
-	uint16_t port = (uint16_t)config_getPropertyInt(c, "HTTP", "Port", 8888);
-	string requestStr = config_getProperty(c, "HTTP", "Request", "mux");
+	uint16_t port = (uint16_t)config_getPropertyInt(config, "HTTP", "Port", 8888);
+	string requestStr = config_getProperty(config, "HTTP", "Request", "mux");
 	bool isRequestValueFromConfig = true;
 
-	string logFile = config_getProperty(c, "Log", "File", NULL);
+	string logFile = config_getProperty(config, "Log", "File", NULL);
+	bool freeLogFile = false;
 	if (logFile && string_getSize(logFile) == 0)
 		logFile = NULL;
 
-	bool isDaemon = config_getPropertyBool(c, "Server", "Daemon", false);
+	bool isDaemon = config_getPropertyBool(config, "Server", "Daemon", false);
 
 	int showHelp = false;
 
@@ -103,6 +110,7 @@ int main(int argc, char** argv) {
 				break;
 			case 'l':
 				logFile = string_initFromCStr(optarg);
+				freeLogFile = true;
 				break;
 			case 's':
 				requestStr = optarg;
@@ -196,13 +204,14 @@ int main(int argc, char** argv) {
 		stderr = fopen("/dev/null", "w+");
 	}
 
-	log_init(&logFile, isDaemon);
-	string_free(logFile);
+	log_init(logFile, isDaemon);
+	if (freeLogFile)
+		string_free(logFile);
 
-	string ip = config_getProperty(c, "HTTP", "IP", "0.0.0.0");
-	string webRoot = config_getProperty(c, "HTTP", "WebRoot", "../www/");
+	string ip = config_getProperty(config, "HTTP", "IP", "0.0.0.0");
+	string webRoot = config_getProperty(config, "HTTP", "WebRoot", "../www/");
 
-	if (config_getPropertyBool(c, "Server", "Chroot", false)) {
+	if (config_getPropertyBool(config, "Server", "Chroot", false)) {
 		if (chroot(webRoot)) {
 			perror("chroot");
 			exit(EXIT_FAILURE);
@@ -219,11 +228,6 @@ int main(int argc, char** argv) {
 		server_freeDeadClients(server);
 		server_handleRequests(server);
 	}
-	server_free(server);
 
-
-	log_free();
-	config_free(c);
-
-	return 0;
+	// Exit can only happen through signals
 }

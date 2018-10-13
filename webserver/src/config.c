@@ -115,6 +115,7 @@ Config* config_init(string filepath) {
 			p->value = string_initFromCStr(middle + 1);
 		}
 	}
+	string_free(buffer);
 
 	fclose(fp);
 	return config;
