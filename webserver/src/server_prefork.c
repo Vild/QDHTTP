@@ -123,7 +123,8 @@ static void* _clientHandle(void* arg) {
 				break;
 			}
 
-			string_setSize(t->threadInfo->client->request, offset + (size_t)amount);
+			if (amount > 0)
+				string_setSize(t->threadInfo->client->request, offset + (size_t)amount);
 			client_update(t->threadInfo->client, time(NULL));
 		}
 		fprintf(stderr, "[%p] Client done\n", t);

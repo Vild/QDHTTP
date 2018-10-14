@@ -83,7 +83,8 @@ static void server_fork_handleRequests(struct Server* server) {
 			break;
 		}
 
-		string_setSize(client->request, offset + (size_t)amount);
+		if (amount > 0)
+			string_setSize(client->request, offset + (size_t)amount);
 		client_update(client, time(NULL));
 
 		if (amount == 0) {

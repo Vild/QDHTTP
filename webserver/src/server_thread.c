@@ -79,10 +79,13 @@ static void* _clientHandle(void* arg) {
 	while (!ti->client->dead) {
 		size_t offset = string_getSize(ti->client->request);
 		ssize_t amount = read(ti->client->fd, ti->client->request + offset, string_getSpaceLeft(ti->client->request));
-		if (amount <= 0 && errno != EAGAIN && errno != 0)
+		if (amount <= 0 && errno != EAGAIN && errno != 0) {
+			fprintf(stderr, "errno: %s(%d) - amount: %ld - ti: %p, ti->client: %p, ti->client->request: %p, offset: %zu\n", strerror(errno), errno, amount, ti, ti->client, ti->client->request, offset);
 			break;
+		}
 
-		string_setSize(ti->client->request, offset + (size_t)amount);
+		if (amount > 0)
+			string_setSize(ti->client->request, offset + (size_t)amount);
 		client_update(ti->client, time(NULL));
 	}
 	ti->client->dead = true;

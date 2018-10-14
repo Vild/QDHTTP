@@ -111,7 +111,8 @@ static void server_mux_handleRequests(struct Server* server) {
 						client->dead = true;
 						break;
 					}
-					string_setSize(client->request, offset + (size_t)amount);
+					if (amount > 0)
+						string_setSize(client->request, offset + (size_t)amount);
 					if (amount == 0) {
 						client->dead = true;
 						break;
