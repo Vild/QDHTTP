@@ -89,7 +89,7 @@ ERRORSS = >>/tmp/.`whoami`-build-errors || true
 
 # == Build rules ==
 
-.PHONY: all clean init depend
+.PHONY: all clean init
 
 # Prevents Make from removing intermediary files on failure
 .SECONDARY:

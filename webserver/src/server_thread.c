@@ -18,19 +18,6 @@ static void server_thread_init(struct Server* server);
 static void server_thread_free(struct Server* server);
 static void server_thread_handleRequests(struct Server* server);
 
-struct ServerThreadHandler {
-	struct ServerHandler handler;
-};
-
-static struct ServerThreadHandler serverThreadHandler = {
-	{
-		init: &server_thread_init,
-		free: &server_thread_free,
-		handleRequests: &server_thread_handleRequests,
-	}
-};
-
-
 struct ThreadInfo {
 	struct ThreadInfo* next;
 	int clientFD;
@@ -40,10 +27,19 @@ struct ThreadInfo {
 	pthread_t thread;
 };
 
-static struct ThreadInfo* first = NULL;
-static struct ThreadInfo* last = NULL;
+struct ServerThreadHandler {
+	struct ServerHandler handler;
+	struct ThreadInfo* first;
+	struct ThreadInfo* last;
+};
 
-#define whereToAppend() (last ? &last->next : &last)
+static struct ServerThreadHandler serverThreadHandler = {
+	{
+		init: &server_thread_init,
+		free: &server_thread_free,
+		handleRequests: &server_thread_handleRequests,
+	}, NULL, NULL
+};
 
 struct ServerHandler* server_thread_getHandler(void) {
 	return &serverThreadHandler.handler;
@@ -64,9 +60,9 @@ static void server_thread_init(struct Server* server) {
 static void server_thread_free(struct Server* server) {
 	(void)server;
 
-	while (first) {
-		struct ThreadInfo* ti = first;
-		first = first->next;
+	while (serverThreadHandler.first) {
+		struct ThreadInfo* ti = serverThreadHandler.first;
+		serverThreadHandler.first = serverThreadHandler.first->next;
 
 		// If the thread is not yet dead, cancel it
 		pthread_cancel(ti->thread);
@@ -83,13 +79,14 @@ static void* _clientHandle(void* arg) {
 	while (!ti->client->dead) {
 		size_t offset = string_getSize(ti->client->request);
 		ssize_t amount = read(ti->client->fd, ti->client->request + offset, string_getSpaceLeft(ti->client->request));
-		if (amount <= 0 && errno != EAGAIN)
+		if (amount <= 0 && errno != EAGAIN && errno != 0)
 			break;
 
 		string_setSize(ti->client->request, offset + (size_t)amount);
 		client_update(ti->client, time(NULL));
 	}
 	ti->client->dead = true;
+	client_update(ti->client, time(NULL));
 	return NULL;
 }
 
@@ -122,21 +119,21 @@ static void server_thread_handleRequests(struct Server* server) {
 			exit(EXIT_FAILURE);
 		}
 
+#define whereToAppend() (serverThreadHandler.last ? &serverThreadHandler.last->next : &serverThreadHandler.last)
 		*whereToAppend() = ti;
-		if (!first)
-			first = ti;
-		last = ti;
+		if (!serverThreadHandler.first)
+			serverThreadHandler.first = ti;
+		serverThreadHandler.last = ti;
 	}
 
 	// Reap old clients
-	while (first && first->client->dead) {
-		struct ThreadInfo* ti = first;
-		first = first->next;
-		if (last == ti)
-			last = NULL;
+	while (serverThreadHandler.first && serverThreadHandler.first->client->dead) {
+		struct ThreadInfo* ti = serverThreadHandler.first;
+		serverThreadHandler.first = serverThreadHandler.first->next;
+		if (serverThreadHandler.last == ti)
+			serverThreadHandler.last = NULL;
 
 		// If the thread is not yet dead (this would be weird), cancel it
-		pthread_cancel(ti->thread);
 		pthread_join(ti->thread, NULL);
 
 		client_free(ti->client);
