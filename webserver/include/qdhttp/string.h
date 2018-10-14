@@ -17,7 +17,7 @@ struct string_header {
 	char str[0];
 };
 
-_Static_assert(sizeof(struct string_header) == 16, "string_header must be 16 bytes in size");
+// _Static_assert(sizeof(struct string_header) == 16, "string_header must be 16 bytes in size");
 
 static inline struct string_header* string_getHeader(string str) {
 	return ((struct string_header*)str) - 1;

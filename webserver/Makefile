@@ -17,6 +17,11 @@ INC := include/
 OBJ := objects/
 BIN :=
 
+# Ubunt 12.04 stuff
+NO_COLOR=1
+RELEASE=1
+NO_ARCH_TUNE=1
+NO_WERROR=1
 
 # == Options ==
 CFLAGS :=
