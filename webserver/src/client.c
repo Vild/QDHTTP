@@ -478,6 +478,26 @@ void client_update(struct Client* client, time_t currentTime) {
 			mime = MIME_html;
 		struct tm* lastModified = gmtime(&lastModifiedTime);
 
+		if (!requestedFile) {
+			// This error data is inlined into this file, incase the www folder cannot
+			// be access, or anything else due to file IO. This way the error message
+			// will always be shown and will always be correct html 4.01.
+			static const char* errorData = "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n"
+				"<html>\n"
+				"	<head>\n"
+				"		<title>HTTP Error %d - %s</title>\n"
+				"		<meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\n"
+				"		<link rel=\"stylesheet\" href=\"/css/style.css\">\n"
+				"	</head>\n"
+				"	<body>\n"
+				"		<div id=\"content\">\n"
+				"			<h1>HTTP Error %d - %s</h1>\n"
+				"			<p>%s</p>\n"
+				"		</div>\n"
+				"	</body>\n"
+				"</html>\n";
+			fileLength = strlen(errorData);
+		}
 		string response = string_init(0x1000);
 		string_append_format(response, "HTTP/1.0 %.3d %s\r\n", HTTPCode_num[request.requestFulfillmentStatus], HTTPCode_str[request.requestFulfillmentStatus]);
 
@@ -501,8 +521,8 @@ void client_update(struct Client* client, time_t currentTime) {
 												 t->tm_sec);
 		string_append(response, "Server: QDHTTP Version (idk)\r\n");
 		string_append_format(response, "Content-Type: %s\r\n", MIME_mime[mime]);
-		if (requestedFile) {
-			string_append_format(response, "Content-Length: %zu\r\n", fileLength);
+		string_append_format(response, "Content-Length: %zu\r\n", fileLength);
+		if (requestedFile)
 			string_append_format(response, "Last-Modified: %.3s, %.2d %.3s %.4d %.2d:%.2d:%.2d GMT\r\n",
 													 wday_name[lastModified->tm_wday],
 													 lastModified->tm_mday,
@@ -511,7 +531,6 @@ void client_update(struct Client* client, time_t currentTime) {
 													 lastModified->tm_hour,
 													 lastModified->tm_min,
 													 lastModified->tm_sec);
-		}
 		string_append(response, "Connection: close\r\n");
 		string_append(response, "\r\n");
 
@@ -525,24 +544,6 @@ void client_update(struct Client* client, time_t currentTime) {
 			}
 			fclose(requestedFile);
 		} else {
-			// This error data is inlined into this file, incase the www folder cannot
-			// be access, or anything else due to file IO. This way the error message
-			// will always be shown and will always be correct html 4.01.
-			static const char* errorData = "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n"
-				"<html>\n"
-				"	<head>\n"
-				"		<title>HTTP Error %d - %s</title>\n"
-				"		<meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\n"
-				"		<link rel=\"stylesheet\" href=\"/css/style.css\">\n"
-				"	</head>\n"
-				"	<body>\n"
-				"		<div id=\"content\">\n"
-				"			<h1>HTTP Error %d - %s</h1>\n"
-				"			<p>%s</p>\n"
-				"		</div>\n"
-				"	</body>\n"
-				"</html>\n";
-
 			string_append_format(response, errorData, HTTPCode_num[request.requestFulfillmentStatus], HTTPCode_str[request.requestFulfillmentStatus], HTTPCode_num[request.requestFulfillmentStatus], HTTPCode_str[request.requestFulfillmentStatus], "Error explaination");
 			log_error(currentTime, "error", inet_ntoa(client->addr.sin_addr), HTTPCode_str[request.requestFulfillmentStatus]);
 		}
