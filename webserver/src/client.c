@@ -478,26 +478,27 @@ void client_update(struct Client* client, time_t currentTime) {
 			mime = MIME_html;
 		struct tm* lastModified = gmtime(&lastModifiedTime);
 
-		if (!requestedFile) {
-			// This error data is inlined into this file, incase the www folder cannot
-			// be access, or anything else due to file IO. This way the error message
-			// will always be shown and will always be correct html 4.01.
-			static const char* errorData = "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n"
-				"<html>\n"
-				"	<head>\n"
-				"		<title>HTTP Error %d - %s</title>\n"
-				"		<meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\n"
-				"		<link rel=\"stylesheet\" href=\"/css/style.css\">\n"
-				"	</head>\n"
-				"	<body>\n"
-				"		<div id=\"content\">\n"
-				"			<h1>HTTP Error %d - %s</h1>\n"
-				"			<p>%s</p>\n"
-				"		</div>\n"
-				"	</body>\n"
-				"</html>\n";
+
+		// This error data is inlined into this file, incase the www folder cannot
+		// be access, or anything else due to file IO. This way the error message
+		// will always be shown and will always be correct html 4.01.
+		static const char* errorData = "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n"
+			"<html>\n"
+			"	<head>\n"
+			"		<title>HTTP Error %d - %s</title>\n"
+			"		<meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\n"
+			"		<link rel=\"stylesheet\" href=\"/css/style.css\">\n"
+			"	</head>\n"
+			"	<body>\n"
+			"		<div id=\"content\">\n"
+			"			<h1>HTTP Error %d - %s</h1>\n"
+			"			<p>%s</p>\n"
+			"		</div>\n"
+			"	</body>\n"
+			"</html>\n";
+		if (!requestedFile)
 			fileLength = strlen(errorData);
-		}
+
 		string response = string_init(0x1000);
 		string_append_format(response, "HTTP/1.0 %.3d %s\r\n", HTTPCode_num[request.requestFulfillmentStatus], HTTPCode_str[request.requestFulfillmentStatus]);
 
